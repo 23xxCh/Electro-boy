@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VE · Anker 虚拟家庭环境看板</title>
+<style>
+  :root { --bg:#0f1420; --panel:#1a2233; --line:#2a3550; --fg:#e6ecf7; --dim:#8b98b5;
+          --acc:#3ea6ff; --good:#34d399; --bad:#f87171; --warn:#fbbf24; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: "Segoe UI", "Microsoft YaHei", sans-serif; background:var(--bg); color:var(--fg); }
+  header { padding:14px 22px; border-bottom:1px solid var(--line); display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
+  header h1 { font-size:18px; margin:0; }
+  .meta { color:var(--dim); font-size:13px; }
+  .pill { padding:2px 10px; border-radius:12px; font-size:12px; background:var(--panel); border:1px solid var(--line); }
+  .pill.run { color:var(--good); border-color:var(--good); }
+  .pill.pause { color:var(--warn); border-color:var(--warn); }
+  button { background:var(--acc); border:0; color:#04121f; font-weight:600; padding:6px 12px; border-radius:6px; cursor:pointer; }
+  button.sec { background:var(--panel); color:var(--fg); border:1px solid var(--line); }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:14px; padding:16px 22px; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px; }
+  .panel h2 { margin:0 0 10px; font-size:14px; color:var(--dim); font-weight:600; text-transform:uppercase; letter-spacing:.5px; }
+  .kv { display:flex; justify-content:space-between; padding:3px 0; font-size:13px; border-bottom:1px dashed var(--line); }
+  .kv b { font-weight:600; }
+  .big { font-size:26px; font-weight:700; }
+  table { width:100%; border-collapse:collapse; font-size:12px; }
+  th,td { padding:3px 6px; text-align:right; border-bottom:1px solid var(--line); }
+  th:first-child,td:first-child { text-align:left; }
+  .pos { color:var(--good); } .neg { color:var(--bad); }
+  svg { width:100%; height:160px; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; }
+  input,select { background:#0d1424; color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:5px 8px; }
+  .small { color:var(--dim); font-size:11px; }
+  .hist { display:flex; flex-wrap:wrap; gap:5px; align-items:center; }
+  .hist .pill { line-height:1.5; }
+</style>
+</head>
+<body>
+<header>
+  <h1>VE · Anker 虚拟家庭环境看板</h1>
+  <span class="pill" id="status">…</span>
+  <span class="meta" id="meta"></span>
+  <span class="row">
+    <button onclick="sim('start')">▶ 启动</button>
+    <button class="sec" onclick="sim('pause')">⏸ 暂停</button>
+    <button class="sec" onclick="sim('resume')">▶ 继续</button>
+    <button class="sec" onclick="sim('step')">⏭ 单步</button>
+    <button class="sec" onclick="sim('stop')">■ 停止</button>
+  </span>
+</header>
+
+<div class="grid">
+  <div class="panel" id="scorePanel">
+    <h2>调度成绩 Score</h2>
+    <div id="score"></div>
+  </div>
+  <div id="sitePanels" style="display:contents"></div>
+  <div class="panel" style="grid-column:1/-1">
+    <h2>站点 Site Info</h2>
+    <div id="sites"></div>
+  </div>
+  <div class="panel" style="grid-column:1/-1">
+    <h2>电网电价（买 / 卖 / 价差）</h2>
+    <div class="row"><select id="priceDay" onchange="drawPrice()"><option value="today">今日</option><option value="tomorrow">明日</option></select></div>
+    <div id="priceChart"></div>
+  </div>
+  <div class="panel" style="grid-column:1/-1">
+    <h2>天气预报（今明逐时）</h2>
+    <div class="row" id="weatherTabs"></div>
+    <div id="weather"></div>
+  </div>
+  <div class="panel" style="grid-column:1/-1">
+    <h2>手动下发控制（演示，正式经 HA）</h2>
+    <div class="row" id="ctrl"></div>
+  </div>
+</div>
+
+<script>
+const API = "";
+let priceData = {today:null, tomorrow:null};
+let weatherData = {};
+let sitesList = [];
+
+async function get(p){ const r = await fetch(API+p); return r.json(); }
+async function post(p, body){ const r = await fetch(API+p, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)}); return r.json(); }
+async function sim(a){ await post('/api/sim', {action:a}); refresh(); }
+
+function fmt(v, d=1){ return (v==null?'-':Number(v).toFixed(d)); }
+
+function lineChart(series, labels){
+  const all = series.flatMap(s=>s.v); const mn = Math.min(...all, 0), mx = Math.max(...all, 0)||1;
+  const W=600, H=160, px=40, py=8;
+  const n = series[0].v.length;
+  const X = i => px + (W-px-10)*i/Math.max(n-1,1);
+  const Y = v => py + (H-py-8)*(1-(v-mn)/(mx-mn||1));
+  let svg = `<svg viewBox="0 0 ${W} ${H}">`;
+  svg += `<line x1="${px}" y1="${Y(0)}" x2="${W-10}" y2="${Y(0)}" stroke="#3a4660" stroke-width="1"/>`;
+  const cols=['#3ea6ff','#f87171','#34d399'];
+  series.forEach((s,k)=>{ svg += `<polyline fill="none" stroke="${cols[k%3]}" stroke-width="1.6" points="${s.v.map((v,i)=>`${X(i)},${Y(v)}`).join(' ')}"/>`; });
+  svg += `<text x="4" y="${Y(mx)+10}" fill="#8b98b5" font-size="9">${mx.toFixed(2)}</text>`;
+  svg += `<text x="4" y="${Y(mn)}" fill="#8b98b5" font-size="9">${mn.toFixed(2)}</text>`;
+  svg += '</svg>';
+  return svg;
+}
+
+async function drawPrice(){
+  const day = document.getElementById('priceDay').value;
+  const d = priceData[day]; if(!d) return;
+  const n = d.buy.length;
+  const labels = Array.from({length:n},(_,i)=> i+'h');
+  document.getElementById('priceChart').innerHTML =
+    lineChart([{v:d.buy},{v:d.sell},{v:d.spread}], labels) +
+    `<div class="small">蓝色=买价 红色=卖价 绿色=价差（€/kWh，横轴=当日小时）</div>`;
+}
+
+function drawWeather(){
+  const keys = Object.keys(weatherData);
+  document.getElementById('weatherTabs').innerHTML = keys.map(k=>`<button class="sec" onclick="showWeather('${k}')">${k}</button>`).join('');
+  if(keys.length) showWeather(keys[0]);
+}
+function showWeather(k){
+  const w = weatherData[k]; if(!w) return;
+  const rows = w.irradiance_w_m2.map((_,i)=>`
+    <tr><td>${i}h</td><td>${w.weather_type[i]}</td><td>${w.cloud_pct[i].toFixed(0)}%</td><td>${w.irradiance_w_m2[i].toFixed(0)}</td><td>${w.temperature_c[i].toFixed(1)}°C</td></tr>`).join('');
+  document.getElementById('weather').innerHTML =
+    `<table><tr><th>时刻</th><th>类型</th><th>云量</th><th>辐照 W/m²</th><th>温度</th></tr>${rows}</table>`;
+}
+
+const SIGNAL_NAMES = {home_load_w:'家庭负载(功率信号)', solar_power_w:'光伏功率',
+  battery_power_w:'电池功率', grid_import_w:'买电功率', grid_export_w:'卖电功率', soc_pct:'SOC'};
+
+function signalOptions(){
+  return `<option value="home_load_w">家庭负载(功率信号)</option>
+    <option value="solar_power_w">光伏功率</option>
+    <option value="battery_power_w">电池功率(充-/放+)</option>
+    <option value="grid_import_w">买电功率</option>
+    <option value="grid_export_w">卖电功率</option>
+    <option value="soc_pct">SOC %</option>`;
+}
+
+let panelsRendered = false;
+function ensureSitePanels(){
+  if(panelsRendered) return;
+  panelsRendered = true;
+  document.getElementById('sitePanels').innerHTML = sitesList.map(sid=>`
+    <div class="panel">
+      <h2>${sid} 功率 / 收益</h2>
+      <div class="row">
+        <select id="signalType_${sid}" onchange="drawSeries('${sid}')">${signalOptions()}</select>
+      </div>
+      <div id="powerChart_${sid}"></div>
+      <div class="small" id="powerCaption_${sid}"></div>
+      <div style="height:8px"></div>
+      <h2>基线 vs 当前调度器（累计 €）</h2>
+      <div id="revenueChart_${sid}"></div>
+      <div class="small" id="revenueCaption_${sid}"></div>
+    </div>`).join('');
+}
+
+async function drawSeries(sid){
+  const sigEl = document.getElementById('signalType_'+sid);
+  if(!sigEl) return;
+  const sig = sigEl.value;
+  try{
+    const [h, sch] = await Promise.all([
+      get('/api/history?site='+sid+'&limit=400'), get('/api/scheduler')
+    ]);
+    const data = h.series || [];
+    if(!data.length){ document.getElementById('powerChart_'+sid).innerHTML='<div class="small">暂无数据（先启动仿真）</div>'; return; }
+    const labels = data.map(d=>d.slot);
+    // 一子图一曲线：单个功率信号
+    document.getElementById('powerChart_'+sid).innerHTML = lineChart([{v:data.map(d=>d[sig])}], labels);
+    document.getElementById('powerCaption_'+sid).textContent =
+      `${SIGNAL_NAMES[sig]} · 最近 ${data.length} 时隙 · ${data[0].timestamp} ~ ${data[data.length-1].timestamp}`;
+    // 一子图（1 或 2 条曲线）：基线(原生自用) vs 当前调度器
+    const last = data[data.length-1];
+    const sname = sch.name || null;
+    if(sname){
+      document.getElementById('revenueChart_'+sid).innerHTML = lineChart(
+        [{v:data.map(d=>d.baseline_cost_eur)},{v:data.map(d=>d.actual_cost_eur)}], labels);
+      const saving = (last.baseline_cost_eur||0) - (last.actual_cost_eur||0);
+      document.getElementById('revenueCaption_'+sid).textContent =
+        `蓝=基线(原生自用) 红=${sname} · 当前累计节省 €${saving.toFixed(2)}`;
+    }else{
+      document.getElementById('revenueChart_'+sid).innerHTML = lineChart(
+        [{v:data.map(d=>d.baseline_cost_eur)}], labels);
+      document.getElementById('revenueCaption_'+sid).textContent =
+        `蓝=基线(原生自用) · 无调度器运行（仅显示基线）`;
+    }
+  }catch(e){ console.error('series', e); }
+}
+
+function renderScore(sc){
+  const per = Object.entries(sc.per_site||{}).map(([s,v])=>
+    `<div class="kv"><span>${s} 收益</span><b>€ ${fmt(v.reward_eur,2)}</b></div>`).join('');
+  const hist = (sc.history||[]).slice(-8).map(h=>`<span class="pill">${h.saving_settled_percent.toFixed(1)}%</span>`).join('');
+  document.getElementById('score').innerHTML = `
+    <div class="kv"><span>saving_settled_percent</span><b class="big">${fmt(sc.saving_settled_percent,1)}%</b></div>
+    <div class="kv"><span>累计收益</span><b>€ ${fmt(sc.reward_eur,2)}</b></div>
+    <div class="kv"><span>基准 K</span><b>€ ${fmt(sc.baseline_k_eur,2)}</b></div>
+    <div class="kv"><span>最好成绩</span><b>${sc.best? fmt(sc.best.saving_settled_percent,1)+'%':'-'}</b></div>
+    ${per}
+    <div class="small" style="margin-top:8px">历史(每日)：</div>
+    <div class="hist">${hist||'-'}</div>`;
+}
+
+function renderSites(states){
+  let html = '';
+  sitesList.forEach(sid=>{
+    const st = states[sid]||{};
+    const mode = st.operating_mode===3?'第三方接管':('mode '+st.operating_mode);
+    html += `<div class="panel" style="margin-bottom:10px">
+      <div class="kv"><span>${sid}</span><b>${mode}</b></div>
+      <div class="kv"><span>SOC</span><b>${fmt(st.soc_pct,1)}%</b></div>
+      <div class="kv"><span>光伏 solar</span><b>${fmt(st.solar_power_w,0)} W</b></div>
+      <div class="kv"><span>负载 load</span><b>${fmt(st.home_load_w,0)} W</b></div>
+      <div class="kv"><span>电池功率</span><b class="${st.battery_power_w>=0?'pos':'neg'}">${fmt(st.battery_power_w,0)} W</b></div>
+      <div class="kv"><span>买电/卖电</span><b>${fmt(st.grid_import_w,0)} / ${fmt(st.grid_export_w,0)} W</b></div>
+      <div class="kv"><span>下发 setpoint</span><b>${fmt(st.power_setpoint_w,0)} W</b></div>
+    </div>`;
+  });
+  document.getElementById('sites').innerHTML = html;
+  // 控制表单
+  document.getElementById('ctrl').innerHTML = sitesList.map(sid=>`
+    <span>${sid}</span><input type="number" id="pw_${sid}" value="0" step="100" style="width:110px" placeholder="W(负=充)">
+    <button onclick="setPw('${sid}')">下发</button>`).join('');
+}
+window.setPw = async function(sid){ const v = document.getElementById('pw_'+sid).value; await post('/api/control', {site:sid, power_w:Number(v)}); refresh(); };
+
+async function refresh(){
+  // 每个接口独立拉取，单个失败不影响其它面板渲染
+  try{
+    const meta = await get('/api/meta');
+    document.getElementById('status').textContent = meta.running ? (meta.paused?'已暂停':'运行中') : (meta.finished?'已完成':'已停止');
+    document.getElementById('status').className = 'pill ' + (meta.running&&!meta.paused?'run':'pause');
+    const sname = meta.scheduler || '无';
+    document.getElementById('meta').textContent =
+      `slot=${meta.slot} · ${meta.now} · ${meta.granularity_min}min/槽 · ${meta.speed}x · 调度器=${sname}`;
+  }catch(e){ console.error('meta', e); }
+
+  try{ renderScore(await get('/api/score')); }catch(e){ console.error('score', e); }
+
+  try{ priceData = await get('/api/price'); drawPrice(); }catch(e){ console.error('price', e); }
+
+  try{
+    const weatherAll = await get('/api/weather');
+    weatherData = {今日: weatherAll.today, 明日: weatherAll.tomorrow}; drawWeather();
+  }catch(e){ console.error('weather', e); }
+
+  try{
+    const siteinfo = await get('/api/siteinfo');
+    sitesList = (siteinfo.sites||[]).map(s=>s.site_id);
+    ensureSitePanels();
+    const st = {};
+    for(const sid of sitesList){ st[sid] = await get('/api/state?site='+sid); }
+    renderSites(st);
+    for(const sid of sitesList){ drawSeries(sid); }
+  }catch(e){ console.error('sites', e); }
+}
+refresh();
+setInterval(refresh, 2000);
+</script>
+</body>
+</html>

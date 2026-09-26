@@ -1,5 +1,27 @@
-# Public repository: opt in reviewed files only.
-*
-!.gitignore
-!README.md
-!lovelace-anker-demo.yaml
+# Python 缓存
+__pycache__/
+*.py[cod]
+*.pyo
+
+# PyInstaller 打包产物（体积极大，禁止提交）
+build/
+dist/
+_internal/
+*.spec
+*.exe
+_mei_tmp/
+_tmp_pip/
+.pytest_cache/
+
+# 运行生成的报告/绘图输出（保留 report/plot_report.py 等绘图源码）
+Controller_LP/report/[0-9]*/
+VE/signal_plots/*.png
+VE/signal_plots/*.svg
+
+# IDE
+.vscode/
+*.code-workspace
+
+# 系统杂项
+.DS_Store
+Thumbs.db

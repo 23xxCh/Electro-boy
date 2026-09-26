@@ -1,0 +1,14 @@
+# -*- coding: utf-8 -*-
+"""requirements.txt —— VE 依赖。
+
+核心（run.py + 内置 HTML 看板 + Modbus + HTTP API + HA REST）零第三方依赖，
+仅需 numpy（env_ankerproject 已装）。以下为可选依赖：
+"""
+# 核心（已随 env_ankerproject 提供）
+numpy
+
+# 可选：Streamlit 版看板（python app.py / streamlit run app.py）
+streamlit
+
+# 可选：用 pymodbus 客户端对接真实 HA 插件时便于自测（VE 本身不依赖它）
+pymodbus
