@@ -203,9 +203,17 @@ pyinstaller -D -n Controller_LP --clean --noconfirm --paths . `
 - 电池 η_c=0.95（充侧）、η_d=1.0；负卖价硬约束"不放电/不上网"。
 - 评分：`saving_settled_percent = Σ(K_i − cost_i)/ΣK_i × 100%`，`K_i`=负载按买价全买电的基准。
 
+## 附录 A：可直接运行的打包版（exe）
+
+不想配环境可直接从 [Releases · v1.0-binaries](https://github.com/23xxCh/Electro-boy/releases/tag/v1.0-binaries)
+下载 `Anker_ChargingAndEnergyStorage_Release1.zip`（约 386 MB，含 `VE_Anker.exe`、
+`Controller_LP.exe` 及全部 `_internal` 运行时），解压后运行各目录下 exe 或
+`tools/launch.bat` 即可，无需 conda/Python 环境。
+源码打包方式见下文第 7 节（PyInstaller）。
+
 ---
 
-## 附录：三站 Home Assistant 看板（Lovelace）
+## 附录 B：三站 Home Assistant 看板（Lovelace）
 
 [lovelace-anker-demo.yaml](lovelace-anker-demo.yaml) 是面向三台 SOLIX Solarbank Max AC 模拟器的 Lovelace 配置，包含总览、三个站点详情、电价和调度决策六个视图。它只负责展示；设备控制仍须走官方 HA 插件。
 
