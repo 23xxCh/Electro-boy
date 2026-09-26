@@ -1,0 +1,5 @@
+# Public repository: opt in reviewed files only.
+*
+!.gitignore
+!README.md
+!lovelace-anker-demo.yaml

@@ -1,0 +1,664 @@
+# 待替换：形如 {{site1_soc}} 的 34 个标记是实体 ID 占位符；填入真实 HA entity_id 后再粘贴到 Lovelace 原始配置编辑器。
+# 本文件只配置看板，不创建实体。外部调度程序应把模拟器数据写入专用 HA 展示实体，不得覆盖官方设备实体。
+# 以下属性是本方案定义的 HA 展示态契约，不代表模拟器原始 API 字段：
+# 数字实体的 state 必须是纯有限数值字符串；W、%、币种等放 unit_of_measurement，不写进 state。
+# 电价实体 state=当前购电价，attributes.sell_price=当前售电价或 null，
+# attributes.sim_now=模拟器当前时刻，
+# attributes.periods=[{start:模拟器时刻(带时区 ISO 8601), buy_price:数值, sell_price:数值或 null}]，
+# 仅保留当前和未来时段；图形按 sim_now 映射成相对时间，不把模拟时钟当现实时间。
+# 天气实体 state=预测辐照度(W/m²)，attributes.weather/valid_at；
+# 决策实体 state=充电/放电/待机，attributes.reason/target_power_w/source_timestamp/valid_until；
+# valid_until 是 HA 实时时钟中的计划有效期，过期后看板不显示旧指令为“当前”。
+# 金额实体 state=同一结算窗内相对原生自发自用的差额，正数为节省，负数为多花；
+# 金额和独立改善率需取得赛方基线及策略结算数据后才能推送，不等同已确认的官方排名分。
+title: Anker 三站能源调度
+views:
+  - title: 总览
+    path: overview
+    icon: mdi:view-dashboard
+    type: sections
+    sections:
+      - type: grid
+        cards:
+          - type: markdown
+            title: 排名分与待核对照
+            entity_id:
+              - "{{score_total}}" # 待替换：模拟器总览 saving_settled_percent
+              - "{{savings_percent_vs_native}}" # 待替换：待核算的相对原生自用改善率
+              - "{{savings_amount_total}}" # 待替换：待核算的三站合计结算差额
+            content: |-
+              {% set score = '{{score_total}}' %}
+              {% set pct = '{{savings_percent_vs_native}}' %}
+              {% set amt = '{{savings_amount_total}}' %}
+              ### 官方排名分
+              {% if is_number(states(score)) %}# {{ states(score) | float | round(2) }}%{% else %}# 待接入{% endif %}
+
+              **对照口径待核：** 相对设备原生自发自用的改善率：
+              {% if is_number(states(pct)) %}**{{ states(pct) | float | round(2) }}%**{% else %}**待接入**{% endif %}
+              {% if is_number(states(amt)) %}
+              {% set v = states(amt) | float %}
+              {% if v >= 0 %}🟢 已节省 **{{ v | round(2) }} {{ state_attr(amt, 'unit_of_measurement') or '币种待确认' }}**{% else %}🔴 多花 **{{ (v | abs) | round(2) }} {{ state_attr(amt, 'unit_of_measurement') or '币种待确认' }}**{% endif %}
+              {% else %}
+              金额待接入
+              {% endif %}
+
+              官方分数结算时刻：{{ state_attr(score, 'source_timestamp') or '待接入' }}
+      - type: grid
+        cards:
+          - type: markdown
+            title: 三站共享电价
+            entity_id:
+              - "{{tariff_current_buy}}" # 待替换：当前购电价，售电价放在 sell_price 属性
+            content: |-
+              {% set t = '{{tariff_current_buy}}' %}
+              {% set u = state_attr(t, 'unit_of_measurement') or '单位待确认' %}
+              🔴 **购电** {% if is_number(states(t)) %}{{ states(t) }} {{ u }}{% else %}待接入{% endif %}
+
+              {% set sell = state_attr(t, 'sell_price') %}
+              {% if sell is number and sell < 0 %}🔴{% else %}🟢{% endif %} **售电** {% if sell is number %}{{ sell }} {{ u }}{% else %}待接入{% endif %}
+
+              {% if sell is number and sell < 0 %}⚠️ 售电价为负，避免主动向电网送电。{% elif sell is not number %}售电价未知，暂不判断卖电收益。{% endif %}
+      - type: grid
+        cards:
+          - type: markdown
+            title: 站点 1 · 实测与原因
+            entity_id:
+              - "{{site1_soc}}" # 待替换
+              - "{{site1_solar_power}}" # 待替换
+              - "{{site1_home_load}}" # 待替换
+              - "{{site1_battery_charging_power}}" # 待替换
+              - "{{site1_battery_discharging_power}}" # 待替换
+              - "{{site1_grid_import_power}}" # 待替换
+              - "{{site1_grid_export_power}}" # 待替换
+              - "{{decision_site1}}" # 待替换：程序写入的计划与解释
+              - "{{savings_amount_site1}}" # 待替换：本站待核算结算差额
+            content: |-
+              {% set soc = '{{site1_soc}}' %}
+              {% set pv = '{{site1_solar_power}}' %}
+              {% set load = '{{site1_home_load}}' %}
+              {% set c = '{{site1_battery_charging_power}}' %}
+              {% set d = '{{site1_battery_discharging_power}}' %}
+              {% set gi = '{{site1_grid_import_power}}' %}
+              {% set ge = '{{site1_grid_export_power}}' %}
+              {% set a = '{{savings_amount_site1}}' %}
+              {% macro kw(e) -%}{% if is_number(states(e)) %}{{ (states(e) | float / 1000) | round(2) }}{% else %}—{% endif %}{%- endmacro %}
+              {% if is_number(states(c)) and is_number(states(d)) %}
+              {% if states(c) | float > 0 and states(d) | float > 0 %}⚠️ **充放电读数冲突**{% elif states(c) | float > 0 %}🔵 **正在充电 {{ kw(c) }} kW**{% elif states(d) | float > 0 %}🟠 **正在放电 {{ kw(d) }} kW**{% else %}⚪ **电池待机**{% endif %}
+              {% else %}⚪ **实测状态待接入**{% endif %}
+
+              SOC：{% if is_number(states(soc)) %}**{{ states(soc) | float | round(1) }}%**{% else %}待接入{% endif %}
+
+              **实时功率构成：** 下方两条彩色图依次表示来源侧 → 去向侧。
+
+              {% set decision = '{{decision_site1}}' %}
+              {% set expiry = as_datetime(state_attr(decision, 'valid_until'), none) %}
+              **为什么：** {% if has_value(decision) and expiry and expiry > now() %}{{ state_attr(decision, 'reason') or '解释待写入' }}{% else %}⚠️ 调度解释未接入或已过期{% endif %}
+
+              {% if is_number(states(a)) %}{% set v = states(a) | float %}{% if v >= 0 %}🟢 本站已节省 {{ v | round(2) }} {{ state_attr(a, 'unit_of_measurement') or '币种待确认' }}{% else %}🔴 本站多花 {{ (v | abs) | round(2) }} {{ state_attr(a, 'unit_of_measurement') or '币种待确认' }}{% endif %}{% else %}本站结算金额待接入{% endif %}
+          - type: distribution
+            title: 站点 1 · 来源侧 → 家庭总线（W）
+            entities:
+              - entity: "{{site1_solar_power}}" # 待替换
+                name: 光伏
+                color: "#f9a825"
+              - entity: "{{site1_battery_discharging_power}}" # 待替换
+                name: 电池放出
+                color: "#f57c00"
+              - entity: "{{site1_grid_import_power}}" # 待替换
+                name: 电网购入
+                color: "#d32f2f"
+          - type: distribution
+            title: 站点 1 · 家庭总线 → 去向侧（W）
+            entities:
+              - entity: "{{site1_home_load}}" # 待替换
+                name: 家庭负载
+                color: "#1976d2"
+              - entity: "{{site1_battery_charging_power}}" # 待替换
+                name: 电池充入
+                color: "#7e57c2"
+              - entity: "{{site1_grid_export_power}}" # 待替换
+                name: 电网外送
+                color: "#78909c"
+      - type: grid
+        cards:
+          - type: markdown
+            title: 站点 2 · 实测与原因
+            entity_id:
+              - "{{site2_soc}}" # 待替换
+              - "{{site2_solar_power}}" # 待替换
+              - "{{site2_home_load}}" # 待替换
+              - "{{site2_battery_charging_power}}" # 待替换
+              - "{{site2_battery_discharging_power}}" # 待替换
+              - "{{site2_grid_import_power}}" # 待替换
+              - "{{site2_grid_export_power}}" # 待替换
+              - "{{decision_site2}}" # 待替换
+              - "{{savings_amount_site2}}" # 待替换
+            content: |-
+              {% set soc = '{{site2_soc}}' %}
+              {% set pv = '{{site2_solar_power}}' %}
+              {% set load = '{{site2_home_load}}' %}
+              {% set c = '{{site2_battery_charging_power}}' %}
+              {% set d = '{{site2_battery_discharging_power}}' %}
+              {% set gi = '{{site2_grid_import_power}}' %}
+              {% set ge = '{{site2_grid_export_power}}' %}
+              {% set a = '{{savings_amount_site2}}' %}
+              {% macro kw(e) -%}{% if is_number(states(e)) %}{{ (states(e) | float / 1000) | round(2) }}{% else %}—{% endif %}{%- endmacro %}
+              {% if is_number(states(c)) and is_number(states(d)) %}
+              {% if states(c) | float > 0 and states(d) | float > 0 %}⚠️ **充放电读数冲突**{% elif states(c) | float > 0 %}🔵 **正在充电 {{ kw(c) }} kW**{% elif states(d) | float > 0 %}🟠 **正在放电 {{ kw(d) }} kW**{% else %}⚪ **电池待机**{% endif %}
+              {% else %}⚪ **实测状态待接入**{% endif %}
+
+              SOC：{% if is_number(states(soc)) %}**{{ states(soc) | float | round(1) }}%**{% else %}待接入{% endif %}
+
+              **实时功率构成：** 下方两条彩色图依次表示来源侧 → 去向侧。
+
+              {% set decision = '{{decision_site2}}' %}
+              {% set expiry = as_datetime(state_attr(decision, 'valid_until'), none) %}
+              **为什么：** {% if has_value(decision) and expiry and expiry > now() %}{{ state_attr(decision, 'reason') or '解释待写入' }}{% else %}⚠️ 调度解释未接入或已过期{% endif %}
+
+              {% if is_number(states(a)) %}{% set v = states(a) | float %}{% if v >= 0 %}🟢 本站已节省 {{ v | round(2) }} {{ state_attr(a, 'unit_of_measurement') or '币种待确认' }}{% else %}🔴 本站多花 {{ (v | abs) | round(2) }} {{ state_attr(a, 'unit_of_measurement') or '币种待确认' }}{% endif %}{% else %}本站结算金额待接入{% endif %}
+          - type: distribution
+            title: 站点 2 · 来源侧 → 家庭总线（W）
+            entities:
+              - entity: "{{site2_solar_power}}" # 待替换
+                name: 光伏
+                color: "#f9a825"
+              - entity: "{{site2_battery_discharging_power}}" # 待替换
+                name: 电池放出
+                color: "#f57c00"
+              - entity: "{{site2_grid_import_power}}" # 待替换
+                name: 电网购入
+                color: "#d32f2f"
+          - type: distribution
+            title: 站点 2 · 家庭总线 → 去向侧（W）
+            entities:
+              - entity: "{{site2_home_load}}" # 待替换
+                name: 家庭负载
+                color: "#1976d2"
+              - entity: "{{site2_battery_charging_power}}" # 待替换
+                name: 电池充入
+                color: "#7e57c2"
+              - entity: "{{site2_grid_export_power}}" # 待替换
+                name: 电网外送
+                color: "#78909c"
+      - type: grid
+        cards:
+          - type: markdown
+            title: 站点 3 · 实测与原因
+            entity_id:
+              - "{{site3_soc}}" # 待替换
+              - "{{site3_solar_power}}" # 待替换
+              - "{{site3_home_load}}" # 待替换
+              - "{{site3_battery_charging_power}}" # 待替换
+              - "{{site3_battery_discharging_power}}" # 待替换
+              - "{{site3_grid_import_power}}" # 待替换
+              - "{{site3_grid_export_power}}" # 待替换
+              - "{{decision_site3}}" # 待替换
+              - "{{savings_amount_site3}}" # 待替换
+            content: |-
+              {% set soc = '{{site3_soc}}' %}
+              {% set pv = '{{site3_solar_power}}' %}
+              {% set load = '{{site3_home_load}}' %}
+              {% set c = '{{site3_battery_charging_power}}' %}
+              {% set d = '{{site3_battery_discharging_power}}' %}
+              {% set gi = '{{site3_grid_import_power}}' %}
+              {% set ge = '{{site3_grid_export_power}}' %}
+              {% set a = '{{savings_amount_site3}}' %}
+              {% macro kw(e) -%}{% if is_number(states(e)) %}{{ (states(e) | float / 1000) | round(2) }}{% else %}—{% endif %}{%- endmacro %}
+              {% if is_number(states(c)) and is_number(states(d)) %}
+              {% if states(c) | float > 0 and states(d) | float > 0 %}⚠️ **充放电读数冲突**{% elif states(c) | float > 0 %}🔵 **正在充电 {{ kw(c) }} kW**{% elif states(d) | float > 0 %}🟠 **正在放电 {{ kw(d) }} kW**{% else %}⚪ **电池待机**{% endif %}
+              {% else %}⚪ **实测状态待接入**{% endif %}
+
+              SOC：{% if is_number(states(soc)) %}**{{ states(soc) | float | round(1) }}%**{% else %}待接入{% endif %}
+
+              **实时功率构成：** 下方两条彩色图依次表示来源侧 → 去向侧。
+
+              {% set decision = '{{decision_site3}}' %}
+              {% set expiry = as_datetime(state_attr(decision, 'valid_until'), none) %}
+              **为什么：** {% if has_value(decision) and expiry and expiry > now() %}{{ state_attr(decision, 'reason') or '解释待写入' }}{% else %}⚠️ 调度解释未接入或已过期{% endif %}
+
+              {% if is_number(states(a)) %}{% set v = states(a) | float %}{% if v >= 0 %}🟢 本站已节省 {{ v | round(2) }} {{ state_attr(a, 'unit_of_measurement') or '币种待确认' }}{% else %}🔴 本站多花 {{ (v | abs) | round(2) }} {{ state_attr(a, 'unit_of_measurement') or '币种待确认' }}{% endif %}{% else %}本站结算金额待接入{% endif %}
+          - type: distribution
+            title: 站点 3 · 来源侧 → 家庭总线（W）
+            entities:
+              - entity: "{{site3_solar_power}}" # 待替换
+                name: 光伏
+                color: "#f9a825"
+              - entity: "{{site3_battery_discharging_power}}" # 待替换
+                name: 电池放出
+                color: "#f57c00"
+              - entity: "{{site3_grid_import_power}}" # 待替换
+                name: 电网购入
+                color: "#d32f2f"
+          - type: distribution
+            title: 站点 3 · 家庭总线 → 去向侧（W）
+            entities:
+              - entity: "{{site3_home_load}}" # 待替换
+                name: 家庭负载
+                color: "#1976d2"
+              - entity: "{{site3_battery_charging_power}}" # 待替换
+                name: 电池充入
+                color: "#7e57c2"
+              - entity: "{{site3_grid_export_power}}" # 待替换
+                name: 电网外送
+                color: "#78909c"
+      - type: grid
+        cards:
+          - type: markdown
+            title: SOC 横向比较
+            entity_id:
+              - "{{site1_soc}}" # 待替换
+              - "{{site2_soc}}" # 待替换
+              - "{{site3_soc}}" # 待替换
+            content: |-
+              {% set a = states('{{site1_soc}}') %}
+              {% set b = states('{{site2_soc}}') %}
+              {% set c = states('{{site3_soc}}') %}
+              {% if is_number(a) and is_number(b) and is_number(c) %}
+              **当前 SOC 最低：** {% if a | float <= b | float and a | float <= c | float %}站点 1 · {{ a }}%{% elif b | float <= c | float %}站点 2 · {{ b }}%{% else %}站点 3 · {{ c }}%{% endif %}
+              {% else %}三站 SOC 尚未全部接入，暂不能比较。{% endif %}
+
+              下方颜色为中性电量刻度，不代表赛方安全阈值。
+      - type: grid
+        cards:
+          - type: gauge
+            entity: "{{site1_soc}}" # 待替换
+            name: 站点 1 · SOC
+            unit: "%"
+            min: 0
+            max: 100
+      - type: grid
+        cards:
+          - type: gauge
+            entity: "{{site2_soc}}" # 待替换
+            name: 站点 2 · SOC
+            unit: "%"
+            min: 0
+            max: 100
+      - type: grid
+        cards:
+          - type: gauge
+            entity: "{{site3_soc}}" # 待替换
+            name: 站点 3 · SOC
+            unit: "%"
+            min: 0
+            max: 100
+
+  - title: 站点 1
+    path: site-1
+    icon: mdi:home-battery
+    type: sections
+    sections:
+      - type: grid
+        cards:
+          - type: markdown
+            title: 实时读数与预测
+            entity_id:
+              - "{{site1_soc}}" # 待替换
+              - "{{site1_solar_power}}" # 待替换
+              - "{{site1_home_load}}" # 待替换
+              - "{{site1_battery_charging_power}}" # 待替换
+              - "{{site1_battery_discharging_power}}" # 待替换
+              - "{{site1_grid_import_power}}" # 待替换
+              - "{{site1_grid_export_power}}" # 待替换
+              - "{{forecast_site1}}" # 待替换：本站天气/辐照度预测
+              - "{{decision_site1}}" # 待替换：本站调度程序展示态
+            content: |-
+              {% macro kw(e) -%}{% if is_number(states(e)) %}{{ (states(e) | float / 1000) | round(2) }} kW{% else %}待接入{% endif %}{%- endmacro %}
+              | 指标 | 当前 |
+              |:---|---:|
+              | 电池 SOC | {% if is_number(states('{{site1_soc}}')) %}{{ states('{{site1_soc}}') | float | round(1) }}%{% else %}待接入{% endif %} |
+              | ☀️ 光伏输出 | {{ kw('{{site1_solar_power}}') }} |
+              | 🏠 家庭负载 | {{ kw('{{site1_home_load}}') }} |
+              | 🔵 电池充入 | {{ kw('{{site1_battery_charging_power}}') }} |
+              | 🟠 电池放出 | {{ kw('{{site1_battery_discharging_power}}') }} |
+              | 🔴 电网购入 | {{ kw('{{site1_grid_import_power}}') }} |
+              | 🟢 电网售出 | {{ kw('{{site1_grid_export_power}}') }} |
+
+              {% set decision = '{{decision_site1}}' %}
+              {% set expiry = as_datetime(state_attr(decision, 'valid_until'), none) %}
+              **当前计划：** {% if has_value(decision) and expiry and expiry > now() %}{{ states(decision) }}；**理由：** {{ state_attr(decision, 'reason') or '待写入' }}{% else %}⚠️ 未同步或已过期{% endif %}
+
+              **预测辐照度：** {% if is_number(states('{{forecast_site1}}')) %}{{ states('{{forecast_site1}}') }} W/m²{% else %}待接入{% endif %}；**天气：** {{ state_attr('{{forecast_site1}}', 'weather') or '待接入' }}
+
+              预测有效时刻：{{ state_attr('{{forecast_site1}}', 'valid_at') or '待接入' }}
+      - type: grid
+        cards:
+          - type: history-graph
+            title: 站点 1 · SOC 近 24 小时
+            hours_to_show: 24
+            entities:
+              - entity: "{{site1_soc}}" # 待替换
+                name: SOC
+          - type: history-graph
+            title: 站点 1 · 光伏与负载近 24 小时（W）
+            hours_to_show: 24
+            entities:
+              - entity: "{{site1_solar_power}}" # 待替换
+                name: 光伏
+              - entity: "{{site1_home_load}}" # 待替换
+                name: 家庭负载
+          - type: history-graph
+            title: 站点 1 · 电池与电网近 24 小时（W）
+            hours_to_show: 24
+            entities:
+              - entity: "{{site1_battery_charging_power}}" # 待替换
+                name: 电池充入
+              - entity: "{{site1_battery_discharging_power}}" # 待替换
+                name: 电池放出
+              - entity: "{{site1_grid_import_power}}" # 待替换
+                name: 电网购入
+              - entity: "{{site1_grid_export_power}}" # 待替换
+                name: 电网售出
+
+  - title: 站点 2
+    path: site-2
+    icon: mdi:home-battery
+    type: sections
+    sections:
+      - type: grid
+        cards:
+          - type: markdown
+            title: 实时读数与预测
+            entity_id:
+              - "{{site2_soc}}" # 待替换
+              - "{{site2_solar_power}}" # 待替换
+              - "{{site2_home_load}}" # 待替换
+              - "{{site2_battery_charging_power}}" # 待替换
+              - "{{site2_battery_discharging_power}}" # 待替换
+              - "{{site2_grid_import_power}}" # 待替换
+              - "{{site2_grid_export_power}}" # 待替换
+              - "{{forecast_site2}}" # 待替换
+              - "{{decision_site2}}" # 待替换
+            content: |-
+              {% macro kw(e) -%}{% if is_number(states(e)) %}{{ (states(e) | float / 1000) | round(2) }} kW{% else %}待接入{% endif %}{%- endmacro %}
+              | 指标 | 当前 |
+              |:---|---:|
+              | 电池 SOC | {% if is_number(states('{{site2_soc}}')) %}{{ states('{{site2_soc}}') | float | round(1) }}%{% else %}待接入{% endif %} |
+              | ☀️ 光伏输出 | {{ kw('{{site2_solar_power}}') }} |
+              | 🏠 家庭负载 | {{ kw('{{site2_home_load}}') }} |
+              | 🔵 电池充入 | {{ kw('{{site2_battery_charging_power}}') }} |
+              | 🟠 电池放出 | {{ kw('{{site2_battery_discharging_power}}') }} |
+              | 🔴 电网购入 | {{ kw('{{site2_grid_import_power}}') }} |
+              | 🟢 电网售出 | {{ kw('{{site2_grid_export_power}}') }} |
+
+              {% set decision = '{{decision_site2}}' %}
+              {% set expiry = as_datetime(state_attr(decision, 'valid_until'), none) %}
+              **当前计划：** {% if has_value(decision) and expiry and expiry > now() %}{{ states(decision) }}；**理由：** {{ state_attr(decision, 'reason') or '待写入' }}{% else %}⚠️ 未同步或已过期{% endif %}
+
+              **预测辐照度：** {% if is_number(states('{{forecast_site2}}')) %}{{ states('{{forecast_site2}}') }} W/m²{% else %}待接入{% endif %}；**天气：** {{ state_attr('{{forecast_site2}}', 'weather') or '待接入' }}
+
+              预测有效时刻：{{ state_attr('{{forecast_site2}}', 'valid_at') or '待接入' }}
+      - type: grid
+        cards:
+          - type: history-graph
+            title: 站点 2 · SOC 近 24 小时
+            hours_to_show: 24
+            entities:
+              - entity: "{{site2_soc}}" # 待替换
+                name: SOC
+          - type: history-graph
+            title: 站点 2 · 光伏与负载近 24 小时（W）
+            hours_to_show: 24
+            entities:
+              - entity: "{{site2_solar_power}}" # 待替换
+                name: 光伏
+              - entity: "{{site2_home_load}}" # 待替换
+                name: 家庭负载
+          - type: history-graph
+            title: 站点 2 · 电池与电网近 24 小时（W）
+            hours_to_show: 24
+            entities:
+              - entity: "{{site2_battery_charging_power}}" # 待替换
+                name: 电池充入
+              - entity: "{{site2_battery_discharging_power}}" # 待替换
+                name: 电池放出
+              - entity: "{{site2_grid_import_power}}" # 待替换
+                name: 电网购入
+              - entity: "{{site2_grid_export_power}}" # 待替换
+                name: 电网售出
+
+  - title: 站点 3
+    path: site-3
+    icon: mdi:home-battery
+    type: sections
+    sections:
+      - type: grid
+        cards:
+          - type: markdown
+            title: 实时读数与预测
+            entity_id:
+              - "{{site3_soc}}" # 待替换
+              - "{{site3_solar_power}}" # 待替换
+              - "{{site3_home_load}}" # 待替换
+              - "{{site3_battery_charging_power}}" # 待替换
+              - "{{site3_battery_discharging_power}}" # 待替换
+              - "{{site3_grid_import_power}}" # 待替换
+              - "{{site3_grid_export_power}}" # 待替换
+              - "{{forecast_site3}}" # 待替换
+              - "{{decision_site3}}" # 待替换
+            content: |-
+              {% macro kw(e) -%}{% if is_number(states(e)) %}{{ (states(e) | float / 1000) | round(2) }} kW{% else %}待接入{% endif %}{%- endmacro %}
+              | 指标 | 当前 |
+              |:---|---:|
+              | 电池 SOC | {% if is_number(states('{{site3_soc}}')) %}{{ states('{{site3_soc}}') | float | round(1) }}%{% else %}待接入{% endif %} |
+              | ☀️ 光伏输出 | {{ kw('{{site3_solar_power}}') }} |
+              | 🏠 家庭负载 | {{ kw('{{site3_home_load}}') }} |
+              | 🔵 电池充入 | {{ kw('{{site3_battery_charging_power}}') }} |
+              | 🟠 电池放出 | {{ kw('{{site3_battery_discharging_power}}') }} |
+              | 🔴 电网购入 | {{ kw('{{site3_grid_import_power}}') }} |
+              | 🟢 电网售出 | {{ kw('{{site3_grid_export_power}}') }} |
+
+              {% set decision = '{{decision_site3}}' %}
+              {% set expiry = as_datetime(state_attr(decision, 'valid_until'), none) %}
+              **当前计划：** {% if has_value(decision) and expiry and expiry > now() %}{{ states(decision) }}；**理由：** {{ state_attr(decision, 'reason') or '待写入' }}{% else %}⚠️ 未同步或已过期{% endif %}
+
+              **预测辐照度：** {% if is_number(states('{{forecast_site3}}')) %}{{ states('{{forecast_site3}}') }} W/m²{% else %}待接入{% endif %}；**天气：** {{ state_attr('{{forecast_site3}}', 'weather') or '待接入' }}
+
+              预测有效时刻：{{ state_attr('{{forecast_site3}}', 'valid_at') or '待接入' }}
+      - type: grid
+        cards:
+          - type: history-graph
+            title: 站点 3 · SOC 近 24 小时
+            hours_to_show: 24
+            entities:
+              - entity: "{{site3_soc}}" # 待替换
+                name: SOC
+          - type: history-graph
+            title: 站点 3 · 光伏与负载近 24 小时（W）
+            hours_to_show: 24
+            entities:
+              - entity: "{{site3_solar_power}}" # 待替换
+                name: 光伏
+              - entity: "{{site3_home_load}}" # 待替换
+                name: 家庭负载
+          - type: history-graph
+            title: 站点 3 · 电池与电网近 24 小时（W）
+            hours_to_show: 24
+            entities:
+              - entity: "{{site3_battery_charging_power}}" # 待替换
+                name: 电池充入
+              - entity: "{{site3_battery_discharging_power}}" # 待替换
+                name: 电池放出
+              - entity: "{{site3_grid_import_power}}" # 待替换
+                name: 电网购入
+              - entity: "{{site3_grid_export_power}}" # 待替换
+                name: 电网售出
+
+  - title: 电价
+    path: tariff
+    icon: mdi:cash-multiple
+    type: sections
+    sections:
+      - type: grid
+        cards:
+          - type: markdown
+            title: 当前买卖电价
+            entity_id:
+              - "{{tariff_current_buy}}" # 待替换：三站共享电价展示实体
+            content: |-
+              {% set t = '{{tariff_current_buy}}' %}
+              {% set u = state_attr(t, 'unit_of_measurement') or '单位待确认' %}
+              {% set sell = state_attr(t, 'sell_price') %}
+              🔴 **当前购电价：** {% if is_number(states(t)) %}{{ states(t) }} {{ u }}{% else %}待接入{% endif %}
+
+              {% if sell is number and sell < 0 %}🔴{% else %}🟢{% endif %} **当前售电价：** {% if sell is number %}{{ sell }} {{ u }}{% else %}待接入{% endif %}
+
+              模拟器当前时刻：{{ state_attr(t, 'sim_now') or '待接入' }}
+
+              {% if sell is number and sell < 0 %}<ha-alert alert-type="warning">售电价为负：避免主动外送；电池供家用仍可能合理。</ha-alert>{% elif sell is not number %}<ha-alert alert-type="info">售电价未知，不能根据购电价判断卖电收益。</ha-alert>{% endif %}
+      - type: grid
+        cards:
+          # 唯一第三方卡：HACS 安装 ApexCharts Card；periods 是上述自定义 HA 展示态属性。
+          - type: custom:apexcharts-card
+            graph_span: 24h
+            span:
+              start: minute
+            header:
+              show: true
+              title: 模拟现在起 24 小时 · 电价走势
+            now:
+              show: true
+              label: 模拟现在
+            apex_config:
+              xaxis:
+                labels:
+                  show: false
+              tooltip:
+                x:
+                  show: false
+            series:
+              - entity: "{{tariff_current_buy}}" # 待替换
+                name: 购电价
+                type: line
+                curve: stepline
+                color: "#1976d2"
+                extend_to: false
+                data_generator: |
+                  const rows = entity.attributes.periods;
+                  const simNow = Date.parse(entity.attributes.sim_now);
+                  if (!Array.isArray(rows) || !Number.isFinite(simNow)) return [];
+                  const wallNow = Date.now();
+                   const current = Number(entity.state);
+                   const future = rows.filter(p => p && Number.isFinite(p.buy_price))
+                                      .map(p => [Date.parse(p.start), p.buy_price])
+                                      .filter(([t]) => Number.isFinite(t) && t > simNow && t <= simNow + 86400000)
+                                      .map(([t, v]) => [wallNow + t - simNow, v]);
+                   return (Number.isFinite(current) ? [[wallNow, current]] : []).concat(future);
+              - entity: "{{tariff_current_buy}}" # 待替换
+                name: 售电价
+                type: line
+                curve: stepline
+                color: "#f57c00"
+                extend_to: false
+                data_generator: |
+                  const rows = entity.attributes.periods;
+                  const simNow = Date.parse(entity.attributes.sim_now);
+                  if (!Array.isArray(rows) || !Number.isFinite(simNow)) return [];
+                  const wallNow = Date.now();
+                   const current = entity.attributes.sell_price;
+                   const future = rows.filter(p => p && Number.isFinite(p.sell_price))
+                                      .map(p => [Date.parse(p.start), p.sell_price])
+                                      .filter(([t]) => Number.isFinite(t) && t > simNow && t <= simNow + 86400000)
+                                      .map(([t, v]) => [wallNow + t - simNow, v]);
+                   return (Number.isFinite(current) ? [[wallNow, current]] : []).concat(future);
+      - type: grid
+        cards:
+          - type: markdown
+            title: 负电价时段
+            entity_id:
+              - "{{tariff_current_buy}}" # 待替换
+            content: |-
+              {% set t = '{{tariff_current_buy}}' %}
+              {% set rows = state_attr(t, 'periods') %}
+              {% set u = state_attr(t, 'unit_of_measurement') or '单位待确认' %}
+              {% set sim_now = as_datetime(state_attr(t, 'sim_now'), none) %}
+              {% if rows is iterable and rows is not string and sim_now %}
+              {% set ns = namespace(count=0) %}
+              {% for p in rows %}
+              {% set when = as_datetime(p.start | default(none), none) %}
+              {% if when and when >= sim_now and p.buy_price is number and p.buy_price < 0 %}
+              {% set ns.count = ns.count + 1 %}
+              - 🔵 {{ when.strftime('%m-%d %H:%M %z') }} 负**购**电价 {{ p.buy_price }} {{ u }}
+              {% endif %}
+              {% if when and when >= sim_now and p.sell_price is number and p.sell_price < 0 %}
+              {% set ns.count = ns.count + 1 %}
+              - 🔴 {{ when.strftime('%m-%d %H:%M %z') }} 负**售**电价 {{ p.sell_price }} {{ u }}：避免主动外送
+              {% endif %}
+              {% endfor %}
+              {% if ns.count == 0 %}已提供的未来时段中，未见可确认的负电价。{% endif %}
+              {% else %}未来时段或模拟器时钟待接入。{% endif %}
+
+  - title: 调度决策
+    path: decisions
+    icon: mdi:brain
+    type: sections
+    sections:
+      - type: grid
+        cards:
+          - type: markdown
+            title: 站点 1 · 计划与实测
+            entity_id:
+              - "{{decision_site1}}" # 待替换：程序写入
+              - "{{site1_battery_charging_power}}" # 待替换：官方插件实测
+              - "{{site1_battery_discharging_power}}" # 待替换：官方插件实测
+            content: |-
+              {% set e = '{{decision_site1}}' %}
+              {% set c = '{{site1_battery_charging_power}}' %}
+              {% set d = '{{site1_battery_discharging_power}}' %}
+              {% set expiry = as_datetime(state_attr(e, 'valid_until'), none) %}
+              {% set fresh = has_value(e) and expiry and expiry > now() %}
+              **调度指令：** {% if fresh %}{{ states(e) }}{% else %}⚠️ 未同步或已过期{% endif %}
+
+              **目标功率：** {% if fresh and state_attr(e, 'target_power_w') is number %}{{ (state_attr(e, 'target_power_w') / 1000) | round(2) }} kW{% else %}待写入{% endif %}
+
+              **为什么：** {% if fresh %}{{ state_attr(e, 'reason') or '待写入' }}{% else %}上次说明已过期{% endif %}
+
+              **设备实测：** {% if is_number(states(c)) and is_number(states(d)) %}{% if states(c) | float > 0 and states(d) | float > 0 %}⚠️ 充放电读数冲突{% elif states(c) | float > 0 %}🔵 充电 {{ (states(c) | float / 1000) | round(2) }} kW{% elif states(d) | float > 0 %}🟠 放电 {{ (states(d) | float / 1000) | round(2) }} kW{% else %}⚪ 待机{% endif %}{% else %}待接入{% endif %}
+
+              指令生成时间：{{ state_attr(e, 'source_timestamp') or '待接入' }}
+      - type: grid
+        cards:
+          - type: markdown
+            title: 站点 2 · 计划与实测
+            entity_id:
+              - "{{decision_site2}}" # 待替换
+              - "{{site2_battery_charging_power}}" # 待替换
+              - "{{site2_battery_discharging_power}}" # 待替换
+            content: |-
+              {% set e = '{{decision_site2}}' %}
+              {% set c = '{{site2_battery_charging_power}}' %}
+              {% set d = '{{site2_battery_discharging_power}}' %}
+              {% set expiry = as_datetime(state_attr(e, 'valid_until'), none) %}
+              {% set fresh = has_value(e) and expiry and expiry > now() %}
+              **调度指令：** {% if fresh %}{{ states(e) }}{% else %}⚠️ 未同步或已过期{% endif %}
+
+              **目标功率：** {% if fresh and state_attr(e, 'target_power_w') is number %}{{ (state_attr(e, 'target_power_w') / 1000) | round(2) }} kW{% else %}待写入{% endif %}
+
+              **为什么：** {% if fresh %}{{ state_attr(e, 'reason') or '待写入' }}{% else %}上次说明已过期{% endif %}
+
+              **设备实测：** {% if is_number(states(c)) and is_number(states(d)) %}{% if states(c) | float > 0 and states(d) | float > 0 %}⚠️ 充放电读数冲突{% elif states(c) | float > 0 %}🔵 充电 {{ (states(c) | float / 1000) | round(2) }} kW{% elif states(d) | float > 0 %}🟠 放电 {{ (states(d) | float / 1000) | round(2) }} kW{% else %}⚪ 待机{% endif %}{% else %}待接入{% endif %}
+
+              指令生成时间：{{ state_attr(e, 'source_timestamp') or '待接入' }}
+      - type: grid
+        cards:
+          - type: markdown
+            title: 站点 3 · 计划与实测
+            entity_id:
+              - "{{decision_site3}}" # 待替换
+              - "{{site3_battery_charging_power}}" # 待替换
+              - "{{site3_battery_discharging_power}}" # 待替换
+            content: |-
+              {% set e = '{{decision_site3}}' %}
+              {% set c = '{{site3_battery_charging_power}}' %}
+              {% set d = '{{site3_battery_discharging_power}}' %}
+              {% set expiry = as_datetime(state_attr(e, 'valid_until'), none) %}
+              {% set fresh = has_value(e) and expiry and expiry > now() %}
+              **调度指令：** {% if fresh %}{{ states(e) }}{% else %}⚠️ 未同步或已过期{% endif %}
+
+              **目标功率：** {% if fresh and state_attr(e, 'target_power_w') is number %}{{ (state_attr(e, 'target_power_w') / 1000) | round(2) }} kW{% else %}待写入{% endif %}
+
+              **为什么：** {% if fresh %}{{ state_attr(e, 'reason') or '待写入' }}{% else %}上次说明已过期{% endif %}
+
+              **设备实测：** {% if is_number(states(c)) and is_number(states(d)) %}{% if states(c) | float > 0 and states(d) | float > 0 %}⚠️ 充放电读数冲突{% elif states(c) | float > 0 %}🔵 充电 {{ (states(c) | float / 1000) | round(2) }} kW{% elif states(d) | float > 0 %}🟠 放电 {{ (states(d) | float / 1000) | round(2) }} kW{% else %}⚪ 待机{% endif %}{% else %}待接入{% endif %}
+
+              指令生成时间：{{ state_attr(e, 'source_timestamp') or '待接入' }}
