@@ -3,3 +3,6 @@
 !.gitignore
 !README.md
 !lovelace-anker-demo.yaml
+!CLAUDE.md
+!.claude/
+!.claude/**
