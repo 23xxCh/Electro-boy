@@ -1,0 +1,199 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1680" height="1330" viewBox="0 0 1680 1330" role="img" aria-labelledby="title desc">
+  <title id="title">电击小子当前系统架构：共享管家、本机闭环与环境机只读候选</title>
+  <desc id="desc">Web App 与飞书机器人共用 Service、SQLite 持久记忆和最近十分钟交互记录。Service 经 RuntimeTools 和 RuntimeAPI 调用能源 Runtime；PV LSTM 与 DM 负责预测，HiGHS LP 负责规划。资料保存与设备执行分开确认，只有当前方案首十五分钟经 LocalHA、官方 HA 插件和本机 Debug 仿真执行，实际回读与结算收据回流。环境机只读接入为默认关闭、未部署的独立代码候选。主动通知、能源偏差监控、自动重规划及挑战 Agent 均为规划能力，未接入主链。本机单时段验收不等于真实家庭连续自治。</desc>
+  <defs>
+    <marker id="flow" viewBox="0 0 10 10" refX="8.7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" stroke="#648362" stroke-width="1.4" fill="none"/></marker>
+    <marker id="candidate" viewBox="0 0 10 10" refX="8.7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" stroke="#9c8863" stroke-width="1.4" fill="none"/></marker>
+    <style>
+      text { font-family: 'Microsoft YaHei UI', 'Microsoft YaHei', 'PingFang SC', Arial, sans-serif; }
+      .title { fill:#263f34; font-size:24px; font-weight:650; }
+      .body { fill:#65745f; font-size:16px; }
+      .small { fill:#7b877c; font-size:13px; }
+      .eyebrow { fill:#7f956e; font-size:12px; font-weight:650; }
+      .card { fill:#ffffff; stroke:#dce3d5; stroke-width:1.4; }
+      .line { stroke:#648362; stroke-width:1.8; fill:none; stroke-linecap:round; stroke-linejoin:round; marker-end:url(#flow); }
+      .candidate-line { stroke:#9c8863; stroke-width:1.8; fill:none; stroke-dasharray:9 4 2 4; stroke-linecap:round; marker-end:url(#candidate); }
+    </style>
+  </defs>
+  <rect width="1680" height="1330" fill="#f7f6f0"/>
+  <text x="72" y="42" fill="#263f34" font-size="20" font-weight="650">电击小子 · 家庭能源系统</text>
+  <text x="1608" y="40" fill="#94a08d" font-size="12" text-anchor="end">CURRENT IMPLEMENTATION / 2026.10.17</text>
+  <path d="M813 69h30" stroke="#648362" stroke-width="2"/>
+  <text x="853" y="74" class="small">已实现 · 既有本机验收记录</text>
+  <path d="M1085 69h30" stroke="#9c8863" stroke-width="2" stroke-dasharray="9 4 2 4"/>
+  <text x="1125" y="74" class="small">离线代码候选 · 未部署</text>
+  <path d="M1370 69h30" stroke="#a9b0a5" stroke-width="2" stroke-dasharray="6 5"/>
+  <text x="1410" y="74" class="small">规划能力 · 未接入</text>
+  <path d="M72 92h1536" stroke="#d9dfd1"/>
+
+  <g data-node="headings">
+    <text x="72" y="133" fill="#a6b38d" font-size="13" font-weight="650">01</text><text x="106" y="133" class="title" font-size="21">日常入口</text>
+    <text x="72" y="160" class="small">两个入口，共用一个家庭管家</text>
+    <text x="437" y="133" fill="#a6b38d" font-size="13" font-weight="650">02</text><text x="471" y="133" class="title" font-size="21">理解与记忆</text>
+    <text x="437" y="160" class="small">理解需求，保留用户的确认边界</text>
+    <text x="847" y="133" fill="#a6b38d" font-size="13" font-weight="650">03</text><text x="881" y="133" class="title" font-size="21">预测与规划</text>
+    <text x="847" y="160" class="small">模型预测，数值程序计算计划</text>
+    <text x="1280" y="133" fill="#a6b38d" font-size="13" font-weight="650">04</text><text x="1314" y="133" class="title" font-size="21">确认与执行</text>
+    <text x="1280" y="160" class="small">仅本机单时段，实际结果独立回读</text>
+  </g>
+  <rect x="414" y="186" width="376" height="779" rx="30" fill="#f0f1e9"/>
+  <rect x="824" y="186" width="396" height="779" rx="30" fill="#eeefe2"/>
+
+  <!-- Active paths always reach the execution confirmation gate before HA. -->
+  <path d="M352 289C394 289 395 322 437 322" class="line" marker-start="url(#flow)"/>
+  <path d="M352 476C395 476 395 455 437 455" class="line" marker-start="url(#flow)"/>
+  <path d="M767 335H847" class="line"/>
+  <text x="807" y="319" class="small" text-anchor="middle">目标 / 约束</text>
+  <path d="M847 390H767" class="line"/>
+  <text x="807" y="414" class="small" text-anchor="middle">计划 / 解释</text>
+  <path d="M1022 440V492" class="line" marker-start="url(#flow)"/>
+  <rect x="1034" y="452" width="134" height="25" rx="4" fill="#eeefe2"/><text x="1101" y="470" class="small" text-anchor="middle">同源输入 · LP方案</text>
+  <path d="M1197 335H1280" class="line"/>
+  <text x="1238" y="317" class="small" text-anchor="middle">另次确认</text>
+  <path d="M602 690V568" class="line" marker-start="url(#flow)"/>
+  <rect x="613" y="616" width="153" height="26" rx="4" fill="#f0f1e9"/><text x="689" y="634" class="small" text-anchor="middle">资料版本 · 同源记录</text>
+  <path d="M767 808H847" class="line"/>
+  <text x="807" y="790" class="small" text-anchor="middle">历史 / 天气</text>
+  <path d="M1022 742V692" class="line"/>
+  <text x="1105" y="726" class="small" text-anchor="middle">预测曲线</text>
+  <path d="M767 735H805V664H847" class="line"/>
+  <rect x="791" y="643" width="42" height="64" rx="4" fill="#f7f6f0"/><text x="812" y="660" class="small" text-anchor="middle">状态</text><text x="812" y="679" class="small" text-anchor="middle">电价</text><text x="812" y="698" class="small" text-anchor="middle">约束</text>
+
+  <g data-node="web-app">
+    <rect x="72" y="214" width="280" height="150" rx="22" class="card"/>
+    <rect x="92" y="236" width="34" height="44" rx="8" fill="#f1f4e9" stroke="#b5c5a6" stroke-width="1.3"/>
+    <path d="M102 243h14M105 274h8" stroke="#8ba374" stroke-width="1.5"/>
+    <text x="142" y="258" fill="#263f34" font-size="20" font-weight="650">电击小子 Web App</text>
+    <text x="92" y="300" class="body">3D能源世界 · 数据 · 对话</text>
+    <rect x="92" y="319" width="127" height="26" rx="8" fill="#eef2e6"/>
+    <text x="155" y="337" fill="#70825e" font-size="12" text-anchor="middle">当前：Web App</text>
+  </g>
+  <g data-node="feishu">
+    <rect x="72" y="400" width="280" height="190" rx="22" fill="#f0f4e8" stroke="#a7bd92" stroke-width="1.4"/>
+    <rect x="92" y="421" width="35" height="31" rx="11" fill="#e2ebd6" stroke="#a7bd92"/>
+    <path d="M101 449l-4 6 12-5" fill="#e2ebd6" stroke="#a7bd92"/><circle cx="102" cy="436" r="1.4" fill="#779466"/><circle cx="110" cy="436" r="1.4" fill="#779466"/><circle cx="118" cy="436" r="1.4" fill="#779466"/>
+    <text x="143" y="445" fill="#263f34" font-size="22" font-weight="650">飞书机器人</text>
+    <text x="92" y="488" class="body">查状态 · 记偏好 · 提方案</text>
+    <text x="92" y="517" class="body">已有配对与入站回复链路</text>
+    <rect x="92" y="542" width="239" height="29" rx="8" fill="#e5ecd9"/>
+    <text x="211" y="562" fill="#70825e" font-size="13" text-anchor="middle">飞书已接入；微信待扩展</text>
+  </g>
+  <g data-node="channel-scope">
+    <text x="72" y="650" fill="#263f34" font-size="18" font-weight="650">一套管家，同屏同步</text>
+    <text x="72" y="683" class="body">共享 Service 与 SQLite</text>
+    <text x="72" y="712" class="body">资料持久保存，按户主隔离</text>
+    <text x="72" y="741" class="body">网页读取近10分钟对话 feed</text>
+    <path d="M72 767h280" stroke="#d9dfd1"/>
+    <text x="72" y="801" class="small">已绑定户主可查询与明确确认。</text>
+    <text x="72" y="827" class="small">消息回复成功不等于用户已读；</text>
+    <text x="72" y="853" class="small">保存资料不等于设备已经动作。</text>
+  </g>
+
+  <g data-node="steward">
+    <rect x="437" y="214" width="330" height="354" rx="24" fill="#263f34"/>
+    <text x="460" y="247" fill="#b3c6a1" font-size="12" font-weight="650">SHARED SERVICE / ENERGY STEWARD</text>
+    <text x="460" y="288" fill="#ffffff" font-size="28" font-weight="650">共享能源管家 Agent</text>
+    <path d="M460 307h284" stroke="#466052"/>
+    <text x="460" y="340" fill="#d3dfca" font-size="16">意图识别 · 检索资料 · 解释结果</text>
+    <text x="460" y="370" fill="#d3dfca" font-size="16">受限工具调用，数值由核心计算</text>
+    <text x="460" y="400" fill="#d3dfca" font-size="16">复述需求 → 预演 → 确认保存</text>
+    <text x="460" y="430" fill="#d3dfca" font-size="16">保存后新方案 → 另次确认执行</text>
+    <rect x="460" y="451" width="284" height="33" rx="8" fill="#405a45"/>
+    <text x="602" y="473" fill="#d9e7bd" font-size="14" font-weight="600" text-anchor="middle">资料确认号 ≠ 设备方案确认号</text>
+    <text x="460" y="516" fill="#b3c6a1" font-size="14">活动、习惯：持久上下文</text>
+    <text x="460" y="542" fill="#b3c6a1" font-size="14">无日期 reserve_soc：进入LP硬约束</text>
+  </g>
+  <g data-node="data-memory">
+    <rect x="437" y="690" width="330" height="250" rx="22" class="card"/>
+    <text x="460" y="721" class="eyebrow">DATA / MEMORY / EVIDENCE</text>
+    <text x="460" y="758" class="title">数据、记忆与运行记录</text>
+    <text x="460" y="795" class="body">SQLite · 资料版本 · 方案记录</text>
+    <text x="460" y="825" class="body">HA状态 · 已结束历史 · 电价天气</text>
+    <text x="460" y="855" class="body">执行收据 · 实际回读 · 单槽净费</text>
+    <text x="460" y="883" class="small">区分设备时刻、SOC边界与测量区间</text>
+    <rect x="460" y="900" width="284" height="25" rx="8" fill="#eef2e6"/>
+    <text x="602" y="918" fill="#70825e" font-size="12" text-anchor="middle">持久记忆与短期对话 feed 分开</text>
+  </g>
+
+  <g data-node="runtime">
+    <rect x="847" y="214" width="350" height="226" rx="24" class="card"/>
+    <text x="871" y="246" class="eyebrow">CONTROLLED TOOL CHAIN</text>
+    <text x="871" y="282" class="title">能源 Runtime 入口</text>
+    <text x="871" y="321" fill="#566b50" font-size="18">RuntimeTools → RuntimeAPI</text>
+    <text x="871" y="352" class="body">→ 能源 Runtime（独立核心服务）</text>
+    <path d="M871 371h302" stroke="#dce3d5"/>
+    <text x="871" y="397" class="body">预演 / 方案 / 确认 / 回读解释</text>
+    <text x="871" y="422" class="small">户主、版本、来源、有效期与幂等护栏</text>
+  </g>
+  <g data-node="planner">
+    <rect x="847" y="492" width="350" height="200" rx="24" fill="#fbfcf7" stroke="#89a278" stroke-width="1.5"/>
+    <text x="871" y="524" class="eyebrow">NUMERIC STRATEGY ENGINE</text>
+    <text x="871" y="561" class="title">HiGHS LP 策略规划器</text>
+    <text x="871" y="596" class="body">设备约束 + 软件保底电量</text>
+    <text x="871" y="625" class="body">当前到次日末，最多48小时</text>
+    <text x="871" y="660" fill="#70825e" font-size="15" font-weight="600">输出计划；仅首15分钟可另次确认</text>
+  </g>
+  <g data-node="predictor-offline">
+    <rect x="847" y="742" width="350" height="198" rx="22" class="card"/>
+    <text x="871" y="773" class="eyebrow">EXISTING TEAM MODELS</text>
+    <text x="871" y="810" class="title">PV LSTM + DM 预测</text>
+    <text x="871" y="844" class="body">沿用 .pt 权重，预测光伏与负荷</text>
+    <text x="871" y="870" class="small">不训练；无历史实测天气，LMS禁用</text>
+    <path d="M871 888h302" stroke="#dce3d5"/>
+    <text x="871" y="911" class="small">离线支路：main_local.py 跑分 / 回放</text>
+    <text x="871" y="930" class="small">它不是 App 调用入口</text>
+  </g>
+
+  <g data-node="execution">
+    <rect x="1280" y="214" width="328" height="474" rx="24" class="card"/>
+    <text x="1302" y="246" class="eyebrow">LOCAL SINGLE-INTERVAL EXECUTION</text>
+    <text x="1302" y="282" class="title">确认后执行适配层</text>
+    <rect x="1302" y="294" width="284" height="73" rx="14" fill="#e9efd9"/>
+    <text x="1320" y="323" fill="#405a45" font-size="18" font-weight="650">确认执行首15分钟</text>
+    <text x="1320" y="348" fill="#70825e" font-size="13">精确方案号 · 单次动作 · 禁重复</text>
+    <path d="M1444 368v25" class="line"/>
+    <rect x="1302" y="394" width="284" height="98" rx="14" fill="#f0f4e8"/>
+    <text x="1320" y="422" fill="#405a45" font-size="17" font-weight="650">LocalHA → 官方HA插件</text>
+    <text x="1320" y="450" fill="#65745f" font-size="16">→ 本机 Debug 仿真环境</text>
+    <text x="1320" y="475" fill="#7b877c" font-size="13">家庭1；区别于远端环境机</text>
+    <path d="M1444 493v24" class="line"/>
+    <rect x="1302" y="518" width="284" height="146" rx="14" fill="#f6f8f2"/>
+    <text x="1320" y="547" fill="#405a45" font-size="18" font-weight="650">next-tick 实际回读</text>
+    <text x="1320" y="573" fill="#65745f" font-size="15">HA功率 / SOC ＋ VE费用收据</text>
+    <text x="1320" y="594" fill="#7b877c" font-size="12">单槽模拟净电费；不是真实账单</text>
+    <text x="1320" y="613" fill="#7b877c" font-size="12">UUID幂等；unknown 沿原ID核对</text>
+    <rect x="1320" y="621" width="248" height="27" rx="8" fill="#e9efd9"/>
+    <text x="1444" y="640" fill="#70825e" font-size="13" font-weight="600" text-anchor="middle">已有本机单时段闭环验收记录</text>
+  </g>
+  <g data-node="planned-features">
+    <rect x="1280" y="742" width="328" height="278" rx="22" fill="#f2f3ef" stroke="#a9b0a5" stroke-width="1.4" stroke-dasharray="6 5"/>
+    <text x="1302" y="777" fill="#899082" font-size="12" font-weight="650">PLANNED / NOT CONNECTED</text>
+    <text x="1302" y="814" fill="#6c7767" font-size="24" font-weight="650">规划能力 · 未接入</text>
+    <text x="1302" y="853" fill="#899082" font-size="16">主动通知户主</text>
+    <text x="1302" y="883" fill="#899082" font-size="16">能源偏差监控 / 异常自动重规划</text>
+    <text x="1302" y="913" fill="#899082" font-size="16">策略挑战 Agent / 风险回放</text>
+    <path d="M1302 934h284" stroke="#dce0d6"/>
+    <text x="1302" y="961" fill="#92998b" font-size="13">不连入已完成的执行主链</text>
+    <text x="1302" y="987" fill="#92998b" font-size="13">不标注未经核验的“已有原型”</text>
+  </g>
+  <path d="M1608 591H1634V1030H602V940" class="line"/>
+  <rect x="701" y="1017" width="534" height="25" rx="4" fill="#f7f6f0"/>
+  <text x="968" y="1035" fill="#648362" font-size="14" text-anchor="middle">实际回读与收据回流 → 同源解释；不把全窗预计当作实际收益</text>
+
+  <!-- Separate candidate namespace: read-only arrows never lead into execution. -->
+  <g data-node="release-candidate">
+    <rect x="72" y="1045" width="1536" height="210" rx="24" fill="#f3efe2" stroke="#b9a370" stroke-width="1.5" stroke-dasharray="9 4 2 4"/>
+    <text x="96" y="1081" fill="#8e7542" font-size="21" font-weight="650">独立环境机只读支路</text>
+    <text x="1584" y="1080" fill="#9c8863" font-size="14" font-weight="600" text-anchor="end">离线代码候选 · 未部署 · 默认关闭 · 远端控制未开放</text>
+    <g data-node="release-entry"><rect x="96" y="1107" width="250" height="89" rx="14" fill="#fbf9f2" stroke="#ddd2b9"/><text x="113" y="1138" fill="#846b3e" font-size="17" font-weight="650">App / 管家只读入口</text><text x="113" y="1165" fill="#9c8863" font-size="12">GET /api/assistant/environment</text><text x="113" y="1184" fill="#9c8863" font-size="12">精确查询：“环境机状态”</text></g>
+    <path d="M346 1150H401" class="candidate-line" marker-start="url(#candidate)"/>
+    <g data-node="release-adapter"><rect x="401" y="1107" width="330" height="89" rx="14" fill="#fbf9f2" stroke="#ddd2b9"/><text x="418" y="1138" fill="#846b3e" font-size="17" font-weight="650">RuntimeAPI → ReleasePipeline</text><text x="418" y="1165" fill="#9c8863" font-size="13">GET /environment/snapshot</text><text x="418" y="1184" fill="#9c8863" font-size="12">独立来源，不混本机 decision / HUD</text></g>
+    <path d="M731 1150H782" class="candidate-line" marker-start="url(#candidate)"/>
+    <g data-node="release-simulator"><rect x="782" y="1107" width="330" height="89" rx="14" fill="#fbf9f2" stroke="#ddd2b9"/><text x="799" y="1138" fill="#846b3e" font-size="17" font-weight="650">队友 DJXZ Simulator</text><text x="799" y="1165" fill="#9c8863" font-size="13">复用原 SolarBank / HaClient</text><text x="799" y="1184" fill="#9c8863" font-size="12">仅查询与纯命令准备，不下发控制</text></g>
+    <path d="M1112 1150H1156" class="candidate-line" marker-start="url(#candidate)"/>
+    <g data-node="release-ha"><rect x="1156" y="1107" width="428" height="89" rx="14" fill="#fbf9f2" stroke="#ddd2b9"/><text x="1173" y="1138" fill="#846b3e" font-size="17" font-weight="650">远端官方 HA（尚未验证）</text><text x="1173" y="1165" fill="#9c8863" font-size="13">家庭1读数；缺失保留为空，0值保留</text><text x="1173" y="1184" fill="#9c8863" font-size="12">环境身份 / 时间基准未验；控制始终 blocked</text></g>
+    <text x="96" y="1228" fill="#9c8863" font-size="13">只读数据返回；没有连通测试，没有部署或启用配置。远端控制还缺单槽、退出、next-tick与结算证明。</text>
+  </g>
+  <text x="72" y="1290" fill="#7b877c" font-size="13">以源码和既有验收为准；本轮未做连通测试、未重验服务。本机单时段不等于真实家庭持续自治，绿色也不代表此刻在线。</text>
+  <text x="1608" y="1315" fill="#94a08d" font-size="12" text-anchor="end">原图保留 · 不为匹配图而改动系统</text>
+</svg>

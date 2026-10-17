@@ -1,0 +1,149 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1680" height="1034" viewBox="0 0 1680 1034" role="img" aria-labelledby="title desc">
+<title id="title">Everywatt 双入口、双Agent与固定监控系统架构</title>
+<desc id="desc">App与聊天软件Chatbot两个入口共同接入能源管家Agent。管家理解需求、解释决策并协调干预。策略挑战Agent读取计划与用户约束，提出挑战并调用回放验证，将风险证据交给管家；固定监控程序按规则产生异常事件，也交给管家处理。预测器与策略程序负责数值计算，设备执行统一经HA。图中区分已接链路与后续接入功能。</desc>
+<defs>
+<marker id="flow" viewBox="0 0 10 10" refX="8.7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" stroke="#648362" stroke-width="1.4" fill="none"/></marker>
+<marker id="data" viewBox="0 0 10 10" refX="8.7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" stroke="#9baf94" stroke-width="1.4" fill="none"/></marker>
+<marker id="return" viewBox="0 0 10 10" refX="8.7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" stroke="#9c8863" stroke-width="1.4" fill="none"/></marker>
+<marker id="future" viewBox="0 0 10 10" refX="8.7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" stroke="#a9b0a5" stroke-width="1.4" fill="none"/></marker>
+</defs><g font-family="Microsoft YaHei UI, Microsoft YaHei, PingFang SC, Arial, sans-serif">
+<rect x="0" y="0" width="1680" height="1034" rx="0" fill="#f7f6f0" stroke="none" stroke-width="1.3"/>
+<text x="1597" y="29" font-size="12" fill="#94a08d" font-weight="500" text-anchor="end">FAMILY ENERGY / SYSTEM MAP</text>
+<rect x="1288" y="47" width="12" height="12" rx="3" fill="#edf2e2" stroke="#89a278" stroke-width="1.3"/>
+<text x="1308" y="59" font-size="12" fill="#7b877c" font-weight="400" text-anchor="start">现有本地链路</text>
+<rect x="1448" y="47" width="12" height="12" rx="3" fill="none" stroke="#a9b0a5" stroke-width="1.3" stroke-dasharray="6 5"/>
+<text x="1468" y="59" font-size="12" fill="#7b877c" font-weight="400" text-anchor="start">待接入部分</text>
+<path d="M72 84h1525" stroke="#d9dfd1" fill="none"/>
+<g transform="translate(0,-126)">
+<text x="72" y="250" font-size="13" fill="#a6b38d" font-weight="600" text-anchor="start">01</text>
+<text x="106" y="250" font-size="20" fill="#263f34" font-weight="600" text-anchor="start">日常入口</text>
+<text x="72" y="276" font-size="12" fill="#929a8d" font-weight="400" text-anchor="start">在你习惯的地方表达需求</text>
+<text x="437" y="250" font-size="13" fill="#a6b38d" font-weight="600" text-anchor="start">02</text>
+<text x="471" y="250" font-size="20" fill="#263f34" font-weight="600" text-anchor="start">理解与协调</text>
+<text x="437" y="276" font-size="12" fill="#929a8d" font-weight="400" text-anchor="start">一个管家，负责沟通与干预</text>
+<text x="847" y="250" font-size="13" fill="#a6b38d" font-weight="600" text-anchor="start">03</text>
+<text x="881" y="250" font-size="20" fill="#263f34" font-weight="600" text-anchor="start">预测与规划</text>
+<text x="847" y="276" font-size="12" fill="#929a8d" font-weight="400" text-anchor="start">数值模型负责计算计划</text>
+<text x="1297" y="250" font-size="13" fill="#a6b38d" font-weight="600" text-anchor="start">04</text>
+<text x="1331" y="250" font-size="20" fill="#263f34" font-weight="600" text-anchor="start">执行与挑战</text>
+<text x="1297" y="276" font-size="12" fill="#929a8d" font-weight="400" text-anchor="start">执行有反馈，策略有对手</text>
+<rect x="414" y="304" width="376" height="593" rx="30" fill="#f0f1e9" stroke="none" stroke-width="1.3"/>
+<rect x="824" y="304" width="396" height="593" rx="30" fill="#eeefe2" stroke="none" stroke-width="1.3"/>
+<path d="M352 385C396 385 391 439 437 439" stroke="#648362" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#flow)" marker-start="url(#flow)"/>
+<path d="M352 585C397 585 391 489 437 489" stroke="#a9b0a5" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#future)" marker-start="url(#future)" stroke-dasharray="6 5"/>
+<path d="M767 447H847" stroke="#648362" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#flow)"/>
+<rect x="769.5" y="417" width="75" height="21" rx="4" fill="#f7f6f0" stroke="none" stroke-width="1.3"/>
+<text x="807" y="430" font-size="11" fill="#7b877c" font-weight="400" text-anchor="middle">目标与约束</text>
+<path d="M847 521H767" stroke="#9c8863" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#return)"/>
+<rect x="769.5" y="532" width="75" height="21" rx="4" fill="#f7f6f0" stroke="none" stroke-width="1.3"/>
+<text x="807" y="545" font-size="11" fill="#9c8863" font-weight="400" text-anchor="middle">计划与结果</text>
+<path d="M767 592H847" stroke="#a9b0a5" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#future)" stroke-dasharray="6 5"/>
+<rect x="767.5" y="602" width="79" height="20" rx="4" fill="#f7f6f0" stroke="none" stroke-width="1.3"/>
+<text x="807" y="614" font-size="10" fill="#7b877c" font-weight="400" text-anchor="middle">诊断 / 重规划</text>
+<path d="M767 795H847" stroke="#9baf94" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#data)"/>
+<rect x="768.5" y="763" width="77" height="21" rx="4" fill="#f7f6f0" stroke="none" stroke-width="1.3"/>
+<text x="807" y="776" font-size="11" fill="#7b877c" font-weight="400" text-anchor="middle">历史与天气</text>
+<path d="M1022 720V635" stroke="#9baf94" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#data)"/>
+<rect x="1031.0" y="667" width="78" height="22" rx="4" fill="#f7f6f0" stroke="none" stroke-width="1.3"/>
+<text x="1070" y="681" font-size="12" fill="#7b877c" font-weight="400" text-anchor="middle">预测曲线</text>
+<path d="M600 720V657H810V585H847" stroke="#9baf94" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#data)"/>
+<rect x="611.5" y="670" width="165" height="22" rx="4" fill="#f7f6f0" stroke="none" stroke-width="1.3"/>
+<text x="694" y="684" font-size="12" fill="#7b877c" font-weight="400" text-anchor="middle">状态 · 电价 · 设备约束</text>
+<path d="M1197 475H1297" stroke="#648362" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#flow)"/>
+<rect x="1209.0" y="441" width="76" height="22" rx="4" fill="#f7f6f0" stroke="none" stroke-width="1.3"/>
+<text x="1247" y="455" font-size="12" fill="#7b877c" font-weight="400" text-anchor="middle">控制动作</text>
+<path d="M1447 720V635" stroke="#a9b0a5" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#future)" marker-start="url(#future)" stroke-dasharray="6 5"/>
+<rect x="1439.0" y="668" width="146" height="21" rx="4" fill="#f7f6f0" stroke="none" stroke-width="1.3"/>
+<text x="1512" y="681" font-size="11" fill="#7b877c" font-weight="400" text-anchor="middle">挑战回放 / 数值证据</text>
+<path d="M1197 579H1247V765H1297" stroke="#a9b0a5" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#future)" stroke-dasharray="6 5"/>
+<rect x="1275.0" y="677" width="100" height="21" rx="4" fill="#f7f6f0" stroke="none" stroke-width="1.3"/>
+<text x="1325" y="690" font-size="11" fill="#7b877c" font-weight="400" text-anchor="middle">计划与约束</text>
+<path d="M1230 486V464" stroke="#f7f6f0" stroke-width="7" fill="none"/>
+<path d="M1297 835H1230V486Q1215 475 1230 464V309H600V349" stroke="#9c8863" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#return)" stroke-dasharray="6 5"/>
+<rect x="794.0" y="302" width="212" height="22" rx="4" fill="#f7f6f0" stroke="none" stroke-width="1.3"/>
+<text x="900" y="316" font-size="12" fill="#9c8863" font-weight="400" text-anchor="middle">风险证据 → 管家诊断与处理</text>
+<path d="M1597 460H1624V945H602V865" stroke="#9c8863" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#return)"/>
+<rect x="762.0" y="933" width="690" height="23" rx="4" fill="#f7f6f0" stroke="none" stroke-width="1.3"/>
+<text x="1107" y="948" font-size="13" fill="#9c8863" font-weight="400" text-anchor="middle">执行记录持续回流，为下一轮预测、规划和解释提供依据</text>
+<path d="M1597 600H1654V1045H1597" stroke="#a9b0a5" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#future)" stroke-dasharray="6 5"/>
+<path d="M847 1045H400V610H437" stroke="#a9b0a5" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#future)" stroke-dasharray="6 5"/>
+<rect x="476.0" y="1034" width="268" height="22" rx="4" fill="#f7f6f0" stroke="none" stroke-width="1.3"/>
+<text x="610" y="1048" font-size="12" fill="#7b877c" font-weight="400" text-anchor="middle">异常事件 → 管家诊断与重规划</text>
+<rect x="72" y="325" width="280" height="125" rx="22" fill="#ffffff" stroke="#dce3d5" stroke-width="1.3"/>
+<rect x="92" y="345" width="34" height="42" rx="8" fill="#f1f4e9" stroke="#b5c5a6" stroke-width="1.3"/>
+<path d="M102 351h14M105 381h8" stroke="#8ba374" stroke-width="1.5"/>
+<text x="143" y="365" font-size="20" fill="#263f34" font-weight="650" text-anchor="start">Everywatt App</text>
+<text x="143" y="391" font-size="13" fill="#819076" font-weight="400" text-anchor="start">看板 · 计划 · 对话</text>
+<rect x="92" y="411" width="105" height="24" rx="8" fill="#eef2e6" stroke="none" stroke-width="1.3"/>
+<text x="144.5" y="427" font-size="11" fill="#70825e" font-weight="500" text-anchor="middle">当前：Web App</text>
+<rect x="72" y="510" width="280" height="155" rx="22" fill="#f0f4e8" stroke="#b6c5a8" stroke-width="1.3" stroke-dasharray="6 5"/>
+<rect x="92" y="530" width="35" height="31" rx="11" fill="#e2ebd6" stroke="#a7bd92" stroke-width="1.3"/>
+<path d="M101 559l-4 6 12-5" fill="#e2ebd6" stroke="#a7bd92"/><circle cx="102" cy="545" r="1.4" fill="#779466"/><circle cx="110" cy="545" r="1.4" fill="#779466"/><circle cx="118" cy="545" r="1.4" fill="#779466"/>
+<text x="143" y="550" font-size="18" fill="#263f34" font-weight="650" text-anchor="start">聊天软件 Chatbot</text>
+<text x="92" y="591" font-size="14" fill="#758669" font-weight="400" text-anchor="start">微信等日常聊天工具</text>
+<text x="92" y="617" font-size="13" fill="#8b9b80" font-weight="400" text-anchor="start">随时提需求、问原因、收反馈</text>
+<rect x="92" y="632" width="88" height="24" rx="8" fill="#e5ecd9" stroke="none" stroke-width="1.3"/>
+<text x="136.0" y="648" font-size="11" fill="#879677" font-weight="500" text-anchor="middle">渠道待接入</text>
+<text x="72" y="709" font-size="13" fill="#8a9681" font-weight="400" text-anchor="start">两个入口，共用同一套 Agent 与策略。</text>
+<rect x="437" y="349" width="330" height="286" rx="24" fill="#263f34" stroke="none" stroke-width="1.3"/>
+<text x="460" y="380" font-size="11" fill="#b3c6a1" font-weight="600" text-anchor="start">AGENT 01 / ENERGY STEWARD</text>
+<text x="460" y="417" font-size="25" fill="#ffffff" font-weight="600" text-anchor="start">能源管家 Agent</text>
+<path d="M460 434h284" stroke="#43594b" fill="none"/>
+<text x="460" y="461" font-size="14" fill="#d5dfcc" font-weight="400" text-anchor="start">理解需求 · 解释决策 · 协调干预</text>
+<text x="460" y="489" font-size="13" fill="#b8c9ac" font-weight="400" text-anchor="start">读取 Skill，编译用户目标与约束</text>
+<text x="460" y="518" font-size="13" fill="#b8c9ac" font-weight="400" text-anchor="start">接收风险 / 异常，诊断并调用重规划</text>
+<text x="460" y="547" font-size="13" fill="#b8c9ac" font-weight="400" text-anchor="start">受限工具调用，用户目标变更须确认</text>
+<rect x="460" y="576" width="284" height="24" rx="8" fill="#405744" stroke="none" stroke-width="1.3"/>
+<text x="602.0" y="592" font-size="11" fill="#d6e5bf" font-weight="500" text-anchor="middle">翻译 / 解释已接 · 干预待接入</text>
+<text x="460" y="619" font-size="12" fill="#aabc9f" font-weight="400" text-anchor="start">理解 → 预览 → 确认 → 保存 → 解释</text>
+<rect x="437" y="720" width="330" height="145" rx="20" fill="#ffffff" stroke="#dce2d4" stroke-width="1.3"/>
+<text x="460" y="754" font-size="21" fill="#263f34" font-weight="600" text-anchor="start">数据与运行记录</text>
+<text x="460" y="782" font-size="14" fill="#7c8b74" font-weight="400" text-anchor="start">采样 CSV · SOC · 电价 · 天气</text>
+<text x="460" y="807" font-size="13" fill="#909a89" font-weight="400" text-anchor="start">对齐设备时间、预测、计划与回放</text>
+<rect x="460" y="828" width="156" height="24" rx="8" fill="#f0f1eb" stroke="none" stroke-width="1.3"/>
+<text x="538.0" y="844" font-size="11" fill="#969f8d" font-weight="500" text-anchor="middle">后续：HA 实时状态</text>
+<rect x="847" y="349" width="350" height="286" rx="24" fill="#fbfcf6" stroke="#91a674" stroke-width="1.6"/>
+<text x="871" y="380" font-size="11" fill="#8d9f6d" font-weight="600" text-anchor="start">STRATEGY ENGINE</text>
+<text x="871" y="417" font-size="26" fill="#263f34" font-weight="650" text-anchor="start">策略规划器</text>
+<text x="871" y="445" font-size="14" fill="#7d8f6a" font-weight="400" text-anchor="start">统一入口 main_local.py</text>
+<path d="M871 462h302" stroke="#e0e6d4" fill="none"/>
+<rect x="871" y="479" width="139" height="36" rx="10" fill="#e9efd9" stroke="none" stroke-width="1.3"/>
+<text x="940" y="502" font-size="13" fill="#6c8150" font-weight="500" text-anchor="middle">原生约束校验</text>
+<rect x="1022" y="479" width="151" height="36" rx="10" fill="#e9efd9" stroke="none" stroke-width="1.3"/>
+<text x="1097" y="502" font-size="13" fill="#6c8150" font-weight="500" text-anchor="middle">LP 优化求解</text>
+<text x="871" y="546" font-size="13" fill="#7c8b6f" font-weight="400" text-anchor="start">无额外需求基线 vs 用户需求方案</text>
+<text x="871" y="571" font-size="13" fill="#7c8b6f" font-weight="400" text-anchor="start">分别核对预测与回放是否达到目标</text>
+<path d="M871 588h302" stroke="#e0e6d4" fill="none"/>
+<text x="871" y="614" font-size="14" fill="#667e51" font-weight="500" text-anchor="start">输出：24h 计划 / 当前时段动作</text>
+<rect x="847" y="720" width="350" height="145" rx="20" fill="#ffffff" stroke="#dce2d4" stroke-width="1.3"/>
+<text x="871" y="754" font-size="21" fill="#263f34" font-weight="600" text-anchor="start">团队预测器</text>
+<text x="871" y="782" font-size="14" fill="#7c8b74" font-weight="400" text-anchor="start">光伏 ONNX + DM 负载预测</text>
+<text x="871" y="807" font-size="13" fill="#909a89" font-weight="400" text-anchor="start">输出未来 24h 光伏与负载曲线</text>
+<rect x="871" y="828" width="156" height="24" rx="8" fill="#eef2e4" stroke="none" stroke-width="1.3"/>
+<text x="949.0" y="844" font-size="11" fill="#83936d" font-weight="500" text-anchor="middle">沿用现有数值模型</text>
+<rect x="1297" y="349" width="300" height="286" rx="24" fill="#ffffff" stroke="#dce3d5" stroke-width="1.3"/>
+<text x="1320" y="381" font-size="11" fill="#96a28a" font-weight="600" text-anchor="start">EXECUTION</text>
+<text x="1320" y="417" font-size="23" fill="#263f34" font-weight="600" text-anchor="start">执行适配层</text>
+<rect x="1313" y="434" width="268" height="68" rx="12" fill="#eef3e6" stroke="none" stroke-width="1.3"/>
+<text x="1330" y="460" font-size="16" fill="#6e8758" font-weight="600" text-anchor="start">本地物理回放</text>
+<text x="1330" y="484" font-size="12" fill="#91a080" font-weight="400" text-anchor="start">当前：重算电池轨迹与能流</text>
+<rect x="1313" y="523" width="268" height="89" rx="12" fill="#f8f8f4" stroke="#bdc5b4" stroke-width="1.3" stroke-dasharray="6 5"/>
+<text x="1330" y="553" font-size="15" fill="#8f9a85" font-weight="500" text-anchor="start">HA 官方插件 → 储能设备</text>
+<text x="1330" y="578" font-size="12" fill="#9ea794" font-weight="400" text-anchor="start">现场接入后统一经 HA 控制</text>
+<text x="1330" y="598" font-size="11" fill="#a5ad9d" font-weight="400" text-anchor="start">待接入 · 控制下发与状态回读</text>
+<rect x="1297" y="720" width="300" height="190" rx="20" fill="#f4f0e5" stroke="#c4b68e" stroke-width="1.3" stroke-dasharray="6 5"/>
+<text x="1320" y="747" font-size="9" fill="#a39573" font-weight="600" text-anchor="start">AGENT 02 / STRATEGY CHALLENGER</text>
+<text x="1320" y="781" font-size="23" fill="#8c7445" font-weight="600" text-anchor="start">策略挑战 Agent</text>
+<text x="1320" y="812" font-size="12" fill="#a08e69" font-weight="400" text-anchor="start">主动提出薄弱场景，调用回放验证</text>
+<text x="1320" y="836" font-size="12" fill="#a08e69" font-weight="400" text-anchor="start">检验目标能否守住，输出风险证据</text>
+<text x="1320" y="860" font-size="12" fill="#a08e69" font-weight="400" text-anchor="start">只验证与建议，不改用户目标和策略</text>
+<rect x="1320" y="877" width="254" height="24" rx="8" fill="#eae3cf" stroke="none" stroke-width="1.3"/>
+<text x="1447.0" y="893" font-size="11" fill="#a08e69" font-weight="500" text-anchor="middle">已有离线原型 · 待接当前回放链路</text>
+<rect x="847" y="1000" width="750" height="90" rx="18" fill="#f2f3ef" stroke="#b5bdad" stroke-width="1.3" stroke-dasharray="6 5"/>
+<text x="871" y="1035" font-size="20" fill="#87927c" font-weight="600" text-anchor="start">固定监控程序</text>
+<text x="871" y="1064" font-size="13" fill="#9aa38f" font-weight="400" text-anchor="start">按规则检测持续偏差、求解失败与执行不符，输出异常事件</text>
+<rect x="1495" y="1015" width="80" height="24" rx="8" fill="#e5e9df" stroke="none" stroke-width="1.3"/>
+<text x="1535.0" y="1031" font-size="11" fill="#99a28e" font-weight="500" text-anchor="middle">暂不实现</text>
+<text x="72" y="1133" font-size="12" fill="#9da590" font-weight="400" text-anchor="start">实线为已接链路，虚线为待接入功能；固定程序负责监控，能源管家负责干预。</text>
+<text x="1597" y="1133" font-size="12" fill="#9da590" font-weight="400" text-anchor="end">挑战找问题，管家组织处理，数值程序负责计算。</text>
+</g></g></svg>
