@@ -1,0 +1,19 @@
+#!/usr/bin/with-contenv bash
+set -euo pipefail
+
+python3 -u -B /config/sim_src/VE/run.py --speed 180 --no-ha-rest --host 127.0.0.1 &
+ve_pid=$!
+python3 -u -B /config/sim_src/modbus_502_proxy.py &
+proxy_pid=$!
+python3 -u -B /config/sim_src/ve_bridge.py --ve-url http://127.0.0.1:45678 --host 0.0.0.0 --port 45680 --report-root /config/sim_src/Controller_LP/report &
+bridge_pid=$!
+
+cleanup() {
+    kill "$ve_pid" "$proxy_pid" "$bridge_pid" 2>/dev/null || true
+    wait "$ve_pid" "$proxy_pid" "$bridge_pid" 2>/dev/null || true
+}
+trap cleanup EXIT
+trap 'exit 143' TERM INT
+
+# Restart the whole local data plane if any member exits.
+wait -n "$ve_pid" "$proxy_pid" "$bridge_pid"

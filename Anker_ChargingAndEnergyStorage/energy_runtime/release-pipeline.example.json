@@ -1,0 +1,11 @@
+{
+  "enabled": false,
+  "environment": "release_official_ha_unverified",
+  "haUrl": "",
+  "simUrl": "",
+  "haToken": "",
+  "simUsername": "",
+  "simPassword": "",
+  "siteSuffixes": {"1": "", "2": "", "3": ""},
+  "timeoutSeconds": 10
+}

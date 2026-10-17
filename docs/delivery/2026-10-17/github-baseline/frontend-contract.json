@@ -1,0 +1,20 @@
+{
+  "kind": "independent_offline_frontend_parser",
+  "testsRun": 6,
+  "checks": [
+    "module load has no fetch; request is fixed same-origin GET",
+    "zero and missing remain distinct; signed battery actual is allowed",
+    "nonnegative channels and 0..5000 W target enforce the wire contract",
+    "full naive timestamp is required without inventing midnight or timezone",
+    "wrong local origin, positive validation or enabled control fails closed",
+    "only explicit read handler invokes getEnvironment"
+  ],
+  "realFetchCalls": 0,
+  "fakeFetchCalls": 1,
+  "sourceHashes": {
+    "assistantWeb.ts": "cdc9eb2fa477009cc95b35e32a83bc2e1c71143f071489876493f22b9107be64",
+    "ConsumerHome.tsx": "b74d0a1e30c0e67f70d8bc2905fda6cdfb4619c957eefda7254dc07f5b734f18",
+    "consumer.css": "06b3e99907613a50ab0e63762415ec1c731be8e8bcae24c01ce102faf1d36e75"
+  },
+  "limitations": "Pure VM parser/fetch mock and AST review only; no browser, service or remote connectivity."
+}

@@ -1,0 +1,11 @@
+# Versions observed in the accepted Python 3.12 Windows environment.
+# SciPy is pinned because the solver uses its private _highspy interface.
+numpy==2.3.5
+scipy==1.17.1
+onnxruntime==1.20.1
+torch==2.11.0
+xgboost==3.2.0
+matplotlib==3.10.9
+requests==2.33.0
+lark-oapi==1.7.1
+holidays==0.96

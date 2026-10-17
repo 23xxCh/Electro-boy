@@ -1,0 +1,42 @@
+{
+  "scope": "public worktree focused offline checks",
+  "pythonAstFiles": 85,
+  "suites": [
+    {
+      "suite": "Anker_ChargingAndEnergyStorage.energy_runtime.test_runtime",
+      "testsRun": 8,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "suite": "Anker_ChargingAndEnergyStorage.energy_runtime.test_release",
+      "testsRun": 8,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "suite": "test_ch03",
+      "testsRun": 12,
+      "failures": 0,
+      "errors": 0
+    }
+  ],
+  "blockedImportProbes": [
+    "socket.__new__"
+  ],
+  "externalAttemptsDuringChecks": [],
+  "frozenComparisonValid": true,
+  "frozenRunId": "fv01-d4e95d568300ad888164296f12dde89869fdb8e7d89a625ec30924f33c1c2fe9",
+  "historicalXmlCounts": {
+    "site_1": 672,
+    "site_2": 672,
+    "site_3": 672
+  },
+  "checkpointFilesPresent": 4,
+  "checkpointLoadedOrInferred": false,
+  "glbVersion": 2,
+  "glbBytes": 8407268,
+  "servicesStarted": 0,
+  "deviceWrites": 0,
+  "limits": "Existing installed Python environment; no live HTTP, model inference, HA setup, environment connectivity or browser acceptance."
+}
