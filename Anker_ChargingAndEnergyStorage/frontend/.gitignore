@@ -1,0 +1,9 @@
+node_modules/
+dist/
+__pycache__/
+.artifacts/
+*.log
+*.tsbuildinfo
+.gstack/
+preview-artifacts/**/browser/
+preview-artifacts/**/*.log

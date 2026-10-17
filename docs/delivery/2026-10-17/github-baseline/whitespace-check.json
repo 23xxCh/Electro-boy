@@ -1,0 +1,6 @@
+{
+  "command": "git diff --cached --check origin/main",
+  "exitCode": 0,
+  "issueCount": 0,
+  "safeIssueHeaders": []
+}

@@ -1,3 +1,20 @@
+# 电击小子 · 家庭能源 Agent
+
+当前工程包含家庭能源 3D 工作台、网页／飞书同一 Agent、持久用户偏好、预测＋HiGHS 调度及明确确认的本机单家庭执行接口。预计、独立历史实验与实际回读分开显示；不承诺真实家庭收益。
+
+本次先发布当前源码基线，后续功能另开 PR。新环境机适配仍是离线候选，默认关闭，远端控制阻塞；这次 GitHub 发布不代表部署、环境机连通或设备实控验收。
+
+- 当前 App 与构建说明：[frontend](Anker_ChargingAndEnergyStorage/frontend/README.md)
+- Agent／飞书：[channels](Anker_ChargingAndEnergyStorage/channels/README.md)
+- 本机 Runtime 与环境候选：[energy_runtime](Anker_ChargingAndEnergyStorage/energy_runtime/README.md)
+- 发布白名单、净化与离线检查：[GitHub baseline](docs/delivery/2026-10-17/github-baseline/README.md)
+
+Python 3.12 依赖见 [requirements.txt](Anker_ChargingAndEnergyStorage/requirements.txt)，前端使用 package-lock.json 构建。个人 HA 安装、官方插件／映射、凭据、资料和数据库不在仓库；clone 不会自动连接或控制任何设备。仅浏览历史页面不需要启动 HA 或控制循环。
+
+## 原有 VE／Controller 项目
+
+以下保留现有远端工程与启动文档，描述的是原有三站节点；它与当前 Agent 单槽确认流程不同。不要将其旧连续调度启动命令当作当前 Agent 的启动器。
+
 # Anker 充电储能赛道 · VE + Controller 双节点架构
 
 三部分：**Controller（调度器）· VirtualEnv（VE 模拟器）· VisionPanel（看板）**。

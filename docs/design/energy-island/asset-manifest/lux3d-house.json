@@ -1,0 +1,38 @@
+{
+  "provider": "Aholo Lux3D",
+  "region": "cn",
+  "state": "succeeded",
+  "operation": "text_to_3d",
+  "version": "G1-Turbo",
+  "faceCount": 20000,
+  "enablePbr": true,
+  "outputFormat": [
+    "glb"
+  ],
+  "taskId": "4166575",
+  "providerStatus": 3,
+  "localFile": "energy-world/lux3d-house-4166575.glb",
+  "sha256": "95ea06cbe39645fa032f6de54b10167baa1928eb9185a097e41b74a4fd606cb8",
+  "bytes": 8407268,
+  "triangles": 18824,
+  "meshCount": 1,
+  "materials": 1,
+  "textures": [
+    {
+      "width": 2048,
+      "height": 2048,
+      "format": "PNG"
+    },
+    {
+      "width": 2048,
+      "height": 2048,
+      "format": "PNG"
+    }
+  ],
+  "extensions": [],
+  "assetValidation": "GLB2 structure and embedded texture inspection passed; visual review pending",
+  "quoteEstimatedCredits": 13,
+  "quotePricingScope": "BEFORE_ACCOUNT_BENEFITS",
+  "actualChargedCredits": null,
+  "actualChargeStatus": "not_provided_by_verified_task_response"
+}

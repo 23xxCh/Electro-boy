@@ -1,0 +1,36 @@
+{
+  "dry_run": true,
+  "interval_sec": 60,
+  "ha_base": "http://REPLACE_ENV_HOST:8123",
+  "ha_token": "",
+  "sim_base": "http://REPLACE_ENV_HOST:45678",
+  "weather_today": "/api/weather/today",
+  "weather_tomorrow": "/api/weather/tomorrow",
+  "price_path": "",
+  "sites": [
+    {
+      "id": 1,
+      "soc": "sensor.REPLACE_site1_battery_soc",
+      "pv": "sensor.REPLACE_site1_pv_power",
+      "load": "sensor.REPLACE_site1_load_power",
+      "setpoint": "number.REPLACE_site1_battery_power_setpoint",
+      "mode": "select.REPLACE_site1_operating_mode"
+    },
+    {
+      "id": 2,
+      "soc": "sensor.REPLACE_site2_battery_soc",
+      "pv": "sensor.REPLACE_site2_pv_power",
+      "load": "sensor.REPLACE_site2_load_power",
+      "setpoint": "number.REPLACE_site2_battery_power_setpoint",
+      "mode": "select.REPLACE_site2_operating_mode"
+    },
+    {
+      "id": 3,
+      "soc": "sensor.REPLACE_site3_battery_soc",
+      "pv": "sensor.REPLACE_site3_pv_power",
+      "load": "sensor.REPLACE_site3_load_power",
+      "setpoint": "number.REPLACE_site3_battery_power_setpoint",
+      "mode": "select.REPLACE_site3_operating_mode"
+    }
+  ]
+}
