@@ -286,10 +286,11 @@ export default function ConsumerHome({ onView }: { onView: (view: EnergyView) =>
           <Suspense fallback={<div className="ew-scene-loading" role="status">正在展开家庭场景…<span>上方读数与右侧对话仍可使用</span></div>}><EnergyWorld frame={frame} selected={selectedDevice} onSelect={setSelectedDevice} reducedMotion={!!reducedMotion}/></Suspense>
         </div>
         <p className="ew-frame-source">{frame?.kind === 'preview' ? '拖动时间只看预计变化，执行前仍需确认。' : frame?.kind === 'actual' ? '这是刚才15分钟的实际回读，未来仍是预计。' : '最近已读快照，演练暂停时能量流保持静止。'}</p>
+        <DeviceDetail frame={frame} selected={selectedDevice} onAsk={askArrangement}/>
         {(decisionError || decision?.availability === 'stale' || decision?.availability === 'unavailable' || ['unknown', 'expired', 'infeasible'].includes(decision?.presentationState ?? '')) && <p className="ew-data-notice" role="status">{decisionError || (decision?.availability === 'stale' ? '来源已变化，旧计划不可预演或执行。' : decision?.presentationState === 'unknown' ? '执行结果未知，请先按原请求查询。' : decision?.presentationState === 'infeasible' ? '这项要求暂时无法满足，未执行。' : decision?.presentationState === 'expired' ? '计划已过期，请与助手重新安排。' : '数据暂时不可用，已有读数保留原时点。')}</p>}
         <DecisionStage decision={ready ? decision : null} frame={frame} selectedMode={selectedMode} selectedSlot={selectedSlot} onMode={setSelectedMode} onSlot={selectSlot} compact error={decisionError} loading={connecting} busy={busy} onRefresh={() => void refreshDecision()} onProfessional={() => onView('professional')} onAsk={askArrangement}/>
       </section>
-      <div className="ew-agent-rail"><DeviceDetail frame={frame} selected={selectedDevice} onAsk={askArrangement}/>
+      <div className="ew-agent-rail">
       <section className="consumer-conversation" aria-label="与家庭能源助手对话">
         <div className="consumer-conversation-top"><span><span className="consumer-assistant-mark"><SparkleIcon size={18} weight="fill"/></span>你的能源助手</span><span className={`consumer-connection ${ready ? 'is-ready' : ''}`}><i/>{connecting ? '连接中' : ready ? '已连接' : '未连接'}</span></div>
         <p className="consumer-feed-note">网页与飞书 · 最近10分钟{feedError && <span role="status">{feedError}</span>}</p>
