@@ -628,10 +628,10 @@ def catalog() -> tuple[list[dict], dict[str, dict]]:
 class Handler(BaseHTTPRequestHandler):
     def _assistant_proxy(self):
         request_path = urlsplit(self.path).path
-        if not re.fullmatch(r"/api/assistant/(session|status|messages|memories|decision|feed|environment|episodes(?:/[A-Za-z0-9_-]{1,100})?)", request_path):
+        if not re.fullmatch(r"/api/assistant/(session|status|messages|memories|decision|feed|environment|notifications|notification-settings|episodes(?:/[A-Za-z0-9_-]{1,100})?)", request_path):
             self.json(404, {"error": "route_not_found"})
             return
-        if self.command not in {"GET", "HEAD"} and not (self.command == "POST" and request_path == "/api/assistant/messages"):
+        if self.command not in {"GET", "HEAD"} and not (self.command == "POST" and request_path in {"/api/assistant/messages","/api/assistant/notification-settings"}):
             self.json(405, {"error": "method_not_allowed"})
             return
         body = None

@@ -135,6 +135,17 @@
 .consumer-environment-data dd { margin:2px 0 0; font-size:16px; overflow-wrap:anywhere }
 .consumer-environment-data .consumer-environment-time { font-size:12px; overflow-wrap:anywhere }
 .consumer-environment-data>.consumer-link { min-height:44px }
+.consumer-notifications h4 { margin:16px 0 6px; font-size:14px; font-weight:500 }
+.consumer-notification-switch { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:12px 0 }
+.consumer-notification-switch .consumer-primary { font-size:14px }
+.consumer-notifications .consumer-notification-warning { color:#805d2c }
+.consumer-notification-list { margin:0; padding:0; list-style:none }
+.consumer-notification-list li { border-top:1px solid #e0e5d5 }
+.consumer-notification-list summary { display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:44px; padding:10px 0; cursor:pointer; font-size:14px }
+.consumer-notification-list summary strong { font-weight:500; overflow-wrap:anywhere }
+.consumer-notification-list summary span { flex-shrink:0; color:#627057; font-size:12px }
+.consumer-notification-list [data-delivery-state=unknown],.consumer-notification-list [data-delivery-state=failed] { color:#805d2c }
+.consumer-notification-list p { white-space:pre-wrap; overflow-wrap:anywhere }
 .consumer-memory-list { list-style:none; margin:0; padding:0 }
 .consumer-memory-list li { border-bottom:1px solid #e0e5d5; padding:14px 0 }
 .consumer-memory-list span { display:block; color:#627057; font-size:12px }
@@ -352,6 +363,11 @@
 .ew-app .consumer-main { max-width:1456px; padding-top:14px }
 .ew-app .rd-home-heading { margin-bottom:12px; align-items:center }
 .ew-app .rd-home-heading h1 { font-size:23px; letter-spacing:0; margin:0 }
+.ew-result-heading p { margin:5px 0 0; color:#b9ced3; font-size:14px; line-height:1.65; max-width:82ch }
+.ew-result-heading.is-unknown h1,.ew-result-heading.is-unavailable h1 { color:#f0ce98 }
+.ew-result-heading.is-actual h1 { color:#b2f0d9 }
+.ew-result-heading>.consumer-link { flex-shrink:0; align-self:center; font-size:14px }
+.ew-mode-bar { display:flex; align-items:center; justify-content:space-between; gap:14px; margin-bottom:6px }
 .ew-app .consumer-eyebrow { font-size:14px; letter-spacing:0 }
 .ew-app .rd-home-status { font-size:14px; color:#adc6ce }
 .ew-hud { display:grid; grid-template-columns:1.28fr 1fr 1fr 1.15fr; padding:12px 0 15px; border-top:1px solid #29414e; border-bottom:1px solid #29414e; margin-bottom:16px; gap:18px }
@@ -362,14 +378,19 @@
 .ew-hud strong small { display:inline; margin-left:6px; font-family:'Noto Sans SC Variable',sans-serif; font-size:14px }
 .ew-app .consumer-workspace { grid-template-columns:minmax(0,2fr) minmax(350px,1fr); gap:22px; align-items:start }
 .ew-world-column { min-width:0 }
-.ew-world-wrap { height:500px; position:relative; overflow:hidden; border:1px solid #284653; border-radius:20px; background:radial-gradient(ellipse at 50% 65%,#154247,#101c32 57%,#10182d); isolation:isolate }
+.ew-world-wrap { height:420px; position:relative; overflow:hidden; border:1px solid #284653; border-radius:20px; background:radial-gradient(ellipse at 50% 65%,#154247,#101c32 57%,#10182d); isolation:isolate }
+.ew-expand-scene { display:none }
 .ew-frame-source { margin:7px 0 0; font-size:14px; color:#b5cdd4; line-height:1.6 }
 .ew-scene-loading { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:10px; font-size:17px; color:#c9eade }
 .ew-scene-loading span { font-size:14px; color:#adc3ce }
 .ew-data-notice { padding:11px 14px; border-left:3px solid #d5b473; color:#f2d39c; font-size:14px; background:#3b30244d }
 .ew-agent-rail { position:sticky; top:14px; min-width:0; height:auto; min-height:0; display:flex; flex-direction:column; gap:12px }
 .ew-device-detail { padding:15px 17px 12px; background:#132739b3; border:1px solid #2f4d59; border-radius:14px; color:#dceee9 }
-.ew-world-column>.ew-device-detail { margin-top:12px; padding:12px 16px }
+.ew-world-column>.ew-device-detail { margin-top:10px; padding:8px 14px; display:flex; flex-wrap:wrap; align-items:center; gap:8px 16px }
+.ew-world-column>.ew-device-detail dl { flex:1; display:flex; flex-wrap:wrap; gap:8px 18px; margin:0 }
+.ew-world-column>.ew-device-detail dl>div { display:block; flex:1; min-width:84px; font-size:12px }
+.ew-world-column>.ew-device-detail dd { text-align:left; font-size:15px }
+.ew-world-column>.ew-device-detail>.consumer-link { margin-left:auto }
 .ew-device-title { display:flex; justify-content:space-between; gap:10px; align-items:center; font-size:14px }
 .ew-device-title>span:first-child { display:flex; align-items:center; gap:8px }
 .ew-device-title>span:last-child { color:#b6cccf }
@@ -385,7 +406,7 @@
 .ew-app .consumer-feed-note { color:#abc1ca; padding:7px 16px; border-color:#2a4350; font-size:14px }
 .ew-app .consumer-feed-note span { color:#f0ce98 }
 .ew-app .consumer-connection { font-size:14px; color:#aac3c7 }
-.ew-app .consumer-thread { padding:0 16px; flex:1; min-height:180px; max-height:clamp(180px,calc(100dvh - 560px),440px) }
+.ew-app .consumer-thread { padding:0 16px; flex:1; min-height:180px; max-height:clamp(180px,calc(100dvh - 650px),360px) }
 .ew-app .consumer-welcome { padding:16px 0 }
 .ew-app .consumer-welcome p { font-size:16px; color:#c1d5da }
 .ew-app .consumer-suggestions { flex-direction:column; align-items:stretch; gap:7px; margin-top:12px }
@@ -448,6 +469,12 @@
 .ew-app .ew-stage .rd-estimate,.ew-app .ew-stage .rd-evidence { color:#b2c8ce; font-size:14px }
 .ew-app .ew-stage .rd-stage-links .consumer-link { font-size:14px }
 .ew-app :is(button,a,textarea,input,summary):focus-visible { outline:3px solid #f2ce84; outline-offset:3px }
+/* Short desktop gives the assistant its own column before the data HUD. */
+@media(min-width:1101px) and (max-height:720px) {
+  .ew-app .consumer-main { position:relative }
+  .ew-app :is(.ew-result-heading,.ew-mode-bar,.ew-hud) { width:calc((100% - 22px)*2/3) }
+  .ew-agent-rail { position:absolute; top:14px; right:0; width:calc((100% - 22px)/3) }
+}
 @media(min-width:1100px) {
   .ew-app .ew-stage .rd-trajectory { display:grid; grid-template-columns:minmax(0,1fr) 250px; column-gap:20px }
   .ew-app .ew-stage .rd-chart-key { grid-column:1; grid-row:1 }
@@ -475,20 +502,35 @@
   .ew-app .consumer-header .consumer-logo { width:29px; height:32px; border-radius:9px }
   .ew-app .consumer-brand { font-size:16px; gap:7px }
   .ew-app .consumer-brand-caption { display:none }
-  .ew-app .consumer-main { padding:12px 0 160px }
+  .ew-app .consumer-main { display:flex; flex-direction:column; padding:12px 0 160px }
+  .ew-result-heading { order:0 }
+  .ew-mode-bar { order:1 }
+  .ew-hud { order:3 }
+  .ew-world-column { order:4 }
+  .ew-app .consumer-history { order:5 }
+  .ew-app .consumer-history-detail { order:6 }
+  .ew-app .consumer-footer { order:7 }
   .ew-app .rd-home-heading { align-items:flex-start; gap:9px; margin-bottom:10px }
   .ew-app .rd-home-heading h1 { font-size:20px; white-space:nowrap }
+  .ew-app .ew-result-heading { flex-wrap:wrap; gap:3px }
+  .ew-app .ew-result-heading h1 { white-space:normal; font-size:20px }
+  .ew-app .ew-result-heading>.consumer-link { padding:3px 0; min-height:44px }
+  .ew-mode-bar { flex-direction:column; align-items:stretch; gap:3px }
+  .ew-app .ew-mode-bar .rd-home-status { max-width:none; text-align:left }
   .ew-app .rd-home-status { max-width:140px; font-size:14px; line-height:1.5 }
   .ew-hud { grid-template-columns:1fr 1fr; padding:10px 0; gap:10px 12px; margin-bottom:12px }
   .ew-hud>div { padding-left:0; border:0 }
   .ew-hud strong { font-size:23px }
   .ew-hud small,.ew-hud span { font-size:14px; line-height:1.5 }
-  .ew-app .consumer-workspace { display:flex; flex-direction:column; gap:14px }
+  .ew-app .consumer-workspace { display:contents }
   .ew-world-column,.ew-agent-rail { width:100% }
-  .ew-world-wrap { height:395px; border-radius:14px }
+  .ew-world-wrap { height:240px; border-radius:14px }
+  .ew-world-wrap.is-expanded { height:395px }
+  .ew-expand-scene { display:block; position:absolute; z-index:4; right:12px; top:10px; min-height:44px; padding:4px 10px; border:1px solid #4d6873; border-radius:10px; background:#132b3e; color:#d0e9e1; font-size:14px }
   .ew-agent-rail { position:static; height:auto; min-height:0; gap:12px }
-  .ew-app .consumer-conversation { min-height:330px; overflow:visible }
-  .ew-app .consumer-thread { max-height:65dvh }
+  .ew-agent-rail { order:2; margin-bottom:12px }
+  .ew-app .consumer-conversation { min-height:280px; overflow:visible }
+  .ew-app .consumer-thread { max-height:clamp(180px,calc(100dvh - 530px),320px) }
   .ew-app .consumer-composer { position:fixed; padding:10px 14px max(10px,env(safe-area-inset-bottom)); z-index:20; box-shadow:0 -5px 24px #070f21b3 }
   .ew-app .consumer-pending { scroll-margin-bottom:180px }
   .ew-timeline-heading { align-items:flex-start; flex-direction:column; gap:0 }
@@ -496,6 +538,9 @@
   .ew-time-modes button { padding:5px 8px }
   .ew-app .ew-stage .rd-selected-reading { flex-wrap:wrap }
   .ew-app .consumer-footer { padding:15px 0 }
+  .ew-keyboard-open .ew-world-wrap { height:96px }
+  .ew-keyboard-open .ew-world :is(.ew-canvas,.ew-world-glow,.ew-fallback,.ew-world-caption,.ew-camera-controls,.ew-scene-note),.ew-keyboard-open .ew-expand-scene { display:none }
+  .ew-keyboard-open .ew-device-controls { position:static; width:100%; max-width:100%; transform:none; margin:8px 0; justify-content:center; background:transparent; border:0; box-shadow:none }
 }
 @media(max-width:350px) {
   .ew-app { padding:0 10px }
@@ -505,6 +550,6 @@
   .ew-app .consumer-environment { padding:2px 4px; font-size:14px }
   .ew-app .consumer-environment i { display:none }
   .ew-app .consumer-brand-caption { display:none }
-  .ew-world-wrap { height:365px }
+  .ew-world-wrap { height:240px }
   .ew-hud strong { font-size:21px }
 }

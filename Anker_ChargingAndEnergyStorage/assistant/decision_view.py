@@ -180,7 +180,16 @@ class DecisionReader:
         else:
             records=list(reversed(db.execute('SELECT * FROM interaction_feed WHERE app=? AND sender=? AND household=? AND created_at>? ORDER BY sequence DESC LIMIT 50',(*scope,threshold)).fetchall()))
         more=len(records)>50;records=records[:50]
+        items=[]
+        for r in records:
+            item={'id':r['id'],'requestId':r['request_id'],'sourceChannel':r['source_channel'],'userText':r['user_text'],
+                  'agentText':r['agent_text'],'createdAt':r['created_at'],'episodeId':r['episode_id'],'previewId':r['preview_id']}
+            if r['source_channel']=='agent':
+                from .notifications import tables
+                row=db.execute('SELECT state FROM notification_outbox WHERE id=? AND app=? AND sender=? AND household=?',(r['id'],*scope)).fetchone() if tables(db) else None
+                if not row or row['state'] not in {'sent','unknown','failed'}:continue
+                item.update(notificationId=r['id'],deliveryState=row['state'])
+            items.append(item)
         return {'schemaVersion':'assistant-feed-v1','retentionSeconds':600,'reset':reset,'hasMore':more,
                 'cursor':records[-1]['id'] if records else after if row else None,
-                'items':[{'id':r['id'],'requestId':r['request_id'],'sourceChannel':r['source_channel'],'userText':r['user_text'],
-                    'agentText':r['agent_text'],'createdAt':r['created_at'],'episodeId':r['episode_id'],'previewId':r['preview_id']} for r in records]}
+                'items':items}

@@ -9,3 +9,5 @@ matplotlib==3.10.9
 requests==2.33.0
 lark-oapi==1.7.1
 holidays==0.96
+# Windows needs an IANA database for confirmed household timezones.
+tzdata==2025.3; sys_platform == "win32"

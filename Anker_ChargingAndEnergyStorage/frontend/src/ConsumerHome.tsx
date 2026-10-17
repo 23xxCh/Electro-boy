@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState, type FormEvent } 
 import { useReducedMotion } from 'motion/react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { ArrowRightIcon, ArrowUpIcon, BatteryHighIcon, CheckIcon, ClockIcon, GearSixIcon, HouseLineIcon, LeafIcon, LightningIcon, SparkleIcon, WarningCircleIcon, XIcon } from '@phosphor-icons/react';
-import { energyWorldFrame, findMessage, getDecision, getEnvironment, getFeed, getMemories, getSession, getStatus, pendingExpired, sendMessage, type AssistantStatus, type DecisionProjection, type EnvironmentSnapshot, type Memory, type MessageInput, type MessageResult, type Pending, type Session } from './assistantWeb';
+import { energyWorldFrame, findMessage, getDecision, getEnvironment, getFeed, getMemories, getNotifications, getSession, getStatus, homeSummary, pendingExpired, sendMessage, setNotificationsEnabled, type AssistantNotifications, type AssistantStatus, type DecisionProjection, type DeliveryState, type EnvironmentSnapshot, type Memory, type MessageInput, type MessageResult, type Pending, type Session } from './assistantWeb';
 import { evidenceNumber, readValueComparison, type ValueComparison } from './valueComparison';
 import type { EnergyView } from './ViewSwitcher';
 import DecisionStage from './DecisionStage';
@@ -10,6 +10,26 @@ import type { EnergyDevice, EnergyWorldFrame } from './energy-world/types';
 import './consumer.css';
 
 const EnergyWorld = lazy(() => import('./energy-world/EnergyWorld'));
+const notificationState: Record<string, string> = { queued: '等待发送', deferred: '静默期延后', sending: '正在发送', sent: '已提交飞书', unknown: '发送结果未知', failed: '发送失败', cancelled: '已取消', covered_by_reply: '由即时回复覆盖' };
+export function NotificationSection({ ready, data, loading, error, onToggle, onRefresh }: { ready: boolean; data: AssistantNotifications | null; loading: boolean; error: string; onToggle: () => void; onRefresh: () => void }) {
+  const settings = data?.settings;
+  const recordTime = (value: number) => {
+    try { return new Intl.DateTimeFormat('zh-CN', { timeZone: settings?.timezone || 'UTC', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(value * 1000)) + (settings?.timezone ? '' : ' UTC'); }
+    catch { return new Date(value * 1000).toISOString().slice(5, 16).replace('T', ' ') + ' UTC'; }
+  };
+  return <section className="consumer-setting-section consumer-notifications" aria-labelledby="notification-heading">
+    <h3 id="notification-heading"><SparkleIcon size={18}/>飞书主动提醒</h3>
+    <p>重要进展及时提醒，每日 20:00 汇总；22:00–08:00 静默，无新事实不发。</p>
+    {!ready ? <p>连接家庭后可查看提醒设置。</p> : loading ? <p role="status">正在核对提醒设置…</p> : settings ? <>
+      <div className="consumer-notification-switch"><strong>{settings.enabled ? settings.needsTimezone ? '已开启，当前暂停发送' : '已开启' : '已关闭'}</strong><button type="button" className="consumer-primary" aria-pressed={settings.enabled} disabled={loading || !settings.enabled && settings.needsTimezone} onClick={onToggle}>{settings.enabled ? '关闭提醒' : '开启提醒'}</button></div>
+      <p>家庭时区：{settings.timezone || '尚未设置'}</p>{settings.needsTimezone && <p className="consumer-notification-warning">请先在已绑定飞书发送“时区 &lt;IANA&gt;”设置家庭时区，再刷新这里；不会使用浏览器时区。</p>}
+    </> : !error && <p>尚未读取提醒设置。</p>}
+    {error && <p role="alert">{error}</p>}
+    <small>提醒只提供信息，不会替你保存偏好或确认设备控制。已提交飞书不表示你已读；发送结果未知不会自动重发。</small>
+    <button type="button" className="consumer-link" disabled={!ready || loading} onClick={onRefresh}>刷新提醒设置与记录<ArrowRightIcon size={17}/></button>
+    {ready && data && <><h4>最近20条提醒状态</h4>{data.items.length === 0 ? <p>还没有提醒记录。首次开启不会补发旧历史。</p> : <ul className="consumer-notification-list">{data.items.map(item => <li key={item.id}><details><summary><strong>{item.title}</strong><span data-delivery-state={item.state}>{notificationState[item.state]}</span></summary><p>{item.text}</p><small>{recordTime(item.updatedAt)} · 本机演练{item.state === 'covered_by_reply' ? ' · 仅表示即时回复曾尝试覆盖' : ''}</small></details></li>)}</ul>}</>}
+  </section>;
+}
 export function EnvironmentDataSection({ ready, snapshot, loading, error, onRead }: { ready: boolean; snapshot: EnvironmentSnapshot | null; loading: boolean; error: string; onRead: () => void }) {
   const data = ready && !loading && !error && snapshot && ['ready', 'partial'].includes(snapshot.status) ? snapshot : null;
   const value = (n: number | null, unit: string) => n === null ? '未提供' : `${n.toFixed(unit === '%' ? 1 : 2)} ${unit}`;
@@ -45,7 +65,7 @@ function DeviceDetail({ frame, selected, onAsk }: { frame: EnergyWorldFrame | nu
   </section>;
 }
 
-type Turn = { id: string; role: 'user' | 'assistant'; text: string; source?: 'web' | 'feishu'; createdAt?: number; result?: MessageResult };
+type Turn = { id: string; role: 'user' | 'assistant'; text: string; source?: 'web' | 'feishu' | 'agent'; createdAt?: number; result?: MessageResult; deliveryState?: DeliveryState };
 type MessageBody = { text: string } | { action: Extract<MessageInput, { action: unknown }>['action'] };
 type FeedbackDraft = { episodeId: string; rating: 'suitable' | 'unsuitable' };
 const unresolvedKey = 'dianji-assistant-unresolved-request';
@@ -88,6 +108,13 @@ export default function ConsumerHome({ onView }: { onView: (view: EnergyView) =>
   const [environmentLoading, setEnvironmentLoading] = useState(false);
   const [environmentError, setEnvironmentError] = useState('');
   const environmentRead = useRef(0);
+  const [notifications, setNotifications] = useState<AssistantNotifications | null>(null);
+  const [notificationLoading, setNotificationLoading] = useState(false);
+  const [notificationError, setNotificationError] = useState('');
+  const notificationRead = useRef(0);
+  const notificationSaving = useRef(false);
+  const [sceneExpanded, setSceneExpanded] = useState(false);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
   const [memories, setMemories] = useState<Memory[] | null>(null);
   const [memoryError, setMemoryError] = useState('');
   const [draft, setDraft] = useState('');
@@ -139,7 +166,26 @@ export default function ConsumerHome({ onView }: { onView: (view: EnergyView) =>
   }
   function changeDrawer(open: boolean) {
     setDrawer(open);
-    if (!open) { ++environmentRead.current; setEnvironment(null); setEnvironmentLoading(false); setEnvironmentError(''); }
+    if (!open) { ++environmentRead.current; setEnvironment(null); setEnvironmentLoading(false); setEnvironmentError(''); ++notificationRead.current; setNotifications(null); setNotificationLoading(false); setNotificationError(''); }
+  }
+  async function refreshNotifications() {
+    if (!ready || notificationSaving.current) return;
+    const read = ++notificationRead.current; setNotificationLoading(true); setNotificationError('');
+    try { const next = await getNotifications(); if (read === notificationRead.current) setNotifications(next); }
+    catch { if (read === notificationRead.current) { setNotifications(null); setNotificationError('提醒设置暂时没有读到，请刷新核对。'); } }
+    finally { if (read === notificationRead.current) setNotificationLoading(false); }
+  }
+  async function toggleNotifications() {
+    if (!ready || !notifications || notificationLoading || notificationSaving.current) return;
+    notificationSaving.current = true;
+    const read = ++notificationRead.current; setNotificationLoading(true); setNotificationError('');
+    try {
+      const next = await setNotificationsEnabled(!notifications.settings.enabled);
+      if (read === notificationRead.current) { setNotifications(next); if (next.error?.code === 'needs_timezone') setNotificationError('尚未开启提醒。请先在已绑定飞书设置家庭时区，再刷新核对。'); }
+    } catch {
+      try { const latest = await getNotifications(); if (read === notificationRead.current) { setNotifications(latest); setNotificationError('保存没有收到确认，当前按重新读取的设置展示。'); } }
+      catch { if (read === notificationRead.current) { setNotifications(null); setNotificationError('保存结果还未确认，请刷新设置核对。'); } }
+    } finally { notificationSaving.current = false; if (read === notificationRead.current) setNotificationLoading(false); }
   }
   async function readEnvironmentData() {
     if (!ready || environmentLoading) return;
@@ -165,12 +211,12 @@ export default function ConsumerHome({ onView }: { onView: (view: EnergyView) =>
           setTurns(current => {
             const keep = feed.reset ? current.filter(t => t.id === recoverId()) : current.filter(t => !t.createdAt || t.createdAt >= Date.now() / 1000 - feed.retentionSeconds || t.id === recoverId());
             for (const item of feed.items) {
-              const id = item.requestId ?? item.id;
+              const id = item.sourceChannel === 'agent' ? `notification:${item.notificationId}` : item.requestId ?? item.id;
               for (const role of ['user', 'assistant'] as const) {
                 const text = role === 'user' ? item.userText : item.agentText;
                 if (!text) continue;
                 const index = keep.findIndex(t => t.id === id && t.role === role);
-                const turn = { id, role, text, source: item.sourceChannel, createdAt: item.createdAt };
+                const turn = { id, role, text, source: item.sourceChannel, createdAt: item.createdAt, deliveryState: item.deliveryState };
                 if (index < 0) keep.push(turn); else keep[index] = { ...keep[index], ...turn };
               }
             }
@@ -206,6 +252,13 @@ export default function ConsumerHome({ onView }: { onView: (view: EnergyView) =>
     void getMemories().then(items => { if (active) setMemories(items); }).catch(() => { if (active) setMemoryError('个人资料暂时没有读到，关闭后可重试。'); });
     return () => { active = false; };
   }, [drawer, ready, session?.memoryVersion]);
+  useEffect(() => { if (drawer && ready) void refreshNotifications(); }, [drawer, ready]);
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    const update = () => setKeyboardOpen(!!viewport && window.innerWidth <= 760 && document.activeElement === input.current && window.innerHeight - viewport.height > 120);
+    viewport?.addEventListener('resize', update); document.addEventListener('focusin', update); document.addEventListener('focusout', update);
+    return () => { viewport?.removeEventListener('resize', update); document.removeEventListener('focusin', update); document.removeEventListener('focusout', update); };
+  }, []);
 
   function applyResult(result: MessageResult) {
     if (result.status !== 'completed') {
@@ -258,10 +311,18 @@ export default function ConsumerHome({ onView }: { onView: (view: EnergyView) =>
   const site = comparison?.sites.find(s => s.id === 'site_1');
   const improvement = evidenceNumber(site?.summary.improvementEur);
   const frame = useMemo(() => ready ? energyWorldFrame(decision, home, selectedMode, selectedSlot, replay && !reducedMotion) : null, [ready, decision, home, selectedMode, selectedSlot, replay, reducedMotion]);
+  const summary = homeSummary(decision, pending, unresolved, !!ready, now);
+  const previewAvailable = decision?.availability === 'ready' && !!decision.plan?.points.length && !['unknown', 'expired', 'infeasible'].includes(decision.presentationState);
   const askArrangement = () => { setFeedbackDraft(null); setDraft('解释这次安排'); input.current?.focus(); };
   const selectSlot = (slot: number) => { setSelectedSlot(slot); setSelectedMode('preview'); };
+  function summaryAction() {
+    if (summary.action === 'reconcile') void reconcile();
+    else if (summary.action === 'pending') (document.querySelector('.consumer-pending .consumer-primary') ?? document.querySelector('.consumer-pending'))?.scrollIntoView({ block: 'center' });
+    else if (summary.action === 'explain') askArrangement();
+    else { const evidence = document.querySelector<HTMLDetailsElement>('.rd-evidence'); if (evidence) { evidence.open = true; evidence.scrollIntoView({ block: 'center' }); } }
+  }
 
-  return <div className="consumer-app ew-app">
+  return <div className={`consumer-app ew-app ${keyboardOpen ? 'ew-keyboard-open' : ''}`}>
     <a className="consumer-skip" href="#consumer-main">跳到家庭助手</a>
     <header className="consumer-header">
       <a className="consumer-brand" href="?view=family" onClick={e => { e.preventDefault(); onView('family'); }}><span className="consumer-logo"><LightningIcon size={22} weight="fill"/></span><span>电击小子<span className="consumer-brand-caption">家庭能源助手</span></span></a>
@@ -272,23 +333,26 @@ export default function ConsumerHome({ onView }: { onView: (view: EnergyView) =>
           <Dialog.Description id="consumer-settings-description">你的资料跟随已连接的家庭保存。想添加或修改，直接在对话里告诉助手。</Dialog.Description>
           <section className="consumer-setting-section"><h3><HouseLineIcon size={18}/>我的家庭</h3><strong>{ready ? session.ownerLabel : '尚未连接家庭'}</strong><p>{hasSnapshot ? home?.paused ? '设备回读：本机演练已暂停' : '已读到本机设备快照' : coreUnavailable ? '设备演练暂时不可用' : '设备状态尚未确认'}</p><small>本机模拟环境，当前页面不代表真实家庭设备。设备快照不等于预测或执行已经就绪。</small><button className="consumer-link" disabled={connecting} onClick={() => void connect()}>刷新家庭连接<ArrowRightIcon size={17}/></button></section>
           <section className="consumer-setting-section"><h3><LeafIcon size={18}/>记住的日常</h3>{!ready ? <p>连接家庭后可查看个人资料。</p> : memoryError ? <p role="alert">{memoryError}</p> : memories === null ? <p role="status">正在读取个人资料…</p> : memories.length === 0 ? <p>还没有保存的资料。告诉助手一个习惯，确认后会记在这里。</p> : <ul className="consumer-memory-list">{memories.map(m => <li key={`${m.id}-${m.revision}`}><span>{memoryKinds[m.kind] || '已确认资料'}</span><strong>{memoryValue(m.value)}</strong><small>{m.machineConstraint ? '可用于计划的约束' : '作为生活背景参考'} · {m.status === 'active' ? '已保存' : m.status === 'expired' ? '已到期' : '已确认'}</small></li>)}</ul>}</section>
+          <NotificationSection ready={!!ready} data={notifications} loading={notificationLoading} error={notificationError} onToggle={() => void toggleNotifications()} onRefresh={() => void refreshNotifications()}/>
           <EnvironmentDataSection ready={ready} snapshot={environment} loading={environmentLoading} error={environmentError} onRead={() => void readEnvironmentData()}/>
           <section className="consumer-setting-section"><h3>更多工具</h3><button className="consumer-link" onClick={() => onView('history')}>历史实验与曲线<ArrowRightIcon size={17}/></button><button className="consumer-link" onClick={() => onView('professional')}>专业历史工作台<ArrowRightIcon size={17}/></button><button className="consumer-link" onClick={() => onView('sample')}>固定 8 小时样例工具<ArrowRightIcon size={17}/></button></section>
         </Dialog.Content></Dialog.Portal>
       </Dialog.Root></div>
     </header>
     <main id="consumer-main" className="consumer-main">
-      <section className="consumer-heading rd-home-heading"><div><div className="consumer-eyebrow"><HouseLineIcon size={15}/>{ready ? session.ownerLabel : '你的家庭能源'}</div><h1>家庭能源世界</h1></div><span className="rd-home-status">{frame?.timeLabel ?? (connecting ? '正在连接…' : '等待设备读数')}</span></section>
+      <section className={`consumer-heading rd-home-heading ew-result-heading is-${summary.kind}`} data-summary-kind={summary.kind} aria-live="polite"><div><div className="consumer-eyebrow"><HouseLineIcon size={15}/>{ready ? session.ownerLabel : '你的家庭能源'}</div><h1>{summary.title}</h1><p>{summary.detail}</p></div>{summary.action && <button className="consumer-link" disabled={busy || connecting} onClick={summaryAction}>{summary.action === 'reconcile' ? '查询原请求' : summary.action === 'pending' ? '查看待确认内容' : summary.action === 'explain' ? '解释本次安排' : '查看原执行记录'}<ArrowRightIcon size={16}/></button>}</section>
+      <div className="ew-mode-bar"><span className="rd-home-status">{frame?.timeLabel ?? (connecting ? '正在连接…' : '等待设备读数')}</span><div className="ew-time-modes" aria-label="选择数据时间类型"><button aria-pressed={selectedMode === 'observation'} onClick={() => setSelectedMode('observation')}>最近已读</button><button disabled={!previewAvailable} aria-pressed={selectedMode === 'preview'} onClick={() => setSelectedMode('preview')}>计划预演</button><button disabled={!decision?.actual} aria-pressed={selectedMode === 'actual'} onClick={() => setSelectedMode('actual')}>本次回读</button></div></div>
       <WorldHUD frame={frame}/>
       <div className="consumer-workspace">
       <section className="ew-world-column" aria-label="家庭能源场景与计划">
-        <div className="ew-world-wrap" data-frame-kind={frame?.kind ?? 'empty'} data-slot={frame?.interval.slot ?? ''}>
+        <div className={`ew-world-wrap ${sceneExpanded ? 'is-expanded' : ''}`} data-frame-kind={frame?.kind ?? 'empty'} data-slot={frame?.interval.slot ?? ''}>
+          <button type="button" className="ew-expand-scene" aria-expanded={sceneExpanded} onClick={() => setSceneExpanded(value => !value)}>{sceneExpanded ? '收起家园' : '展开家园'}</button>
           <Suspense fallback={<div className="ew-scene-loading" role="status">正在展开家庭场景…<span>上方读数与右侧对话仍可使用</span></div>}><EnergyWorld frame={frame} selected={selectedDevice} onSelect={setSelectedDevice} reducedMotion={!!reducedMotion}/></Suspense>
         </div>
         <p className="ew-frame-source">{frame?.kind === 'preview' ? '拖动时间只看预计变化，执行前仍需确认。' : frame?.kind === 'actual' ? '这是刚才15分钟的实际回读，未来仍是预计。' : '最近已读快照，演练暂停时能量流保持静止。'}</p>
         <DeviceDetail frame={frame} selected={selectedDevice} onAsk={askArrangement}/>
         {(decisionError || decision?.availability === 'stale' || decision?.availability === 'unavailable' || ['unknown', 'expired', 'infeasible'].includes(decision?.presentationState ?? '')) && <p className="ew-data-notice" role="status">{decisionError || (decision?.availability === 'stale' ? '来源已变化，旧计划不可预演或执行。' : decision?.presentationState === 'unknown' ? '执行结果未知，请先按原请求查询。' : decision?.presentationState === 'infeasible' ? '这项要求暂时无法满足，未执行。' : decision?.presentationState === 'expired' ? '计划已过期，请与助手重新安排。' : '数据暂时不可用，已有读数保留原时点。')}</p>}
-        <DecisionStage decision={ready ? decision : null} frame={frame} selectedMode={selectedMode} selectedSlot={selectedSlot} onMode={setSelectedMode} onSlot={selectSlot} compact error={decisionError} loading={connecting} busy={busy} onRefresh={() => void refreshDecision()} onProfessional={() => onView('professional')} onAsk={askArrangement}/>
+        <DecisionStage decision={ready ? decision : null} frame={frame} selectedSlot={selectedSlot} onSlot={selectSlot} compact error={decisionError} loading={connecting} busy={busy} onRefresh={() => void refreshDecision()} onProfessional={() => onView('professional')} onAsk={askArrangement}/>
       </section>
       <div className="ew-agent-rail">
       <section className="consumer-conversation" aria-label="与家庭能源助手对话">
@@ -297,7 +361,7 @@ export default function ConsumerHome({ onView }: { onView: (view: EnergyView) =>
         <div className="consumer-thread" aria-live="polite" aria-relevant="additions text">
           {!connecting && session && !ready && <div className="consumer-feedback" role="alert"><WarningCircleIcon size={19}/><div><p>请先在已配对的飞书通道确认家庭连接，再回到这里。浏览器不能代选家庭身份。</p><button className="consumer-link" onClick={() => void connect()}>重新检查绑定<ArrowRightIcon size={15}/></button></div></div>}
           {turns.length === 0 && !pending && <div className="consumer-welcome"><p>想多留一些备用电，还是有新的用电安排？<br/>告诉我，先一起把这件事想清楚。</p><div className="consumer-suggestions">{suggestions.map(s => <button key={s.label} disabled={blocked} onClick={() => void submit({ text: s.text }, s.text)}><s.icon size={18}/>{s.label}<ArrowRightIcon size={14}/></button>)}</div></div>}
-          {turns.map(turn => { const phase = turn.result?.episode?.phase || turn.result?.episode?.stage || turn.result?.episode?.status || ''; const episodeId = turn.result?.episode?.episodeId || ''; return <div className={`consumer-turn is-${turn.role}`} key={`${turn.role}-${turn.id}`}><span className="consumer-turn-label">{turn.source === 'feishu' && <span className="consumer-source-tag">来自飞书</span>}{turn.role === 'user' ? '你' : <><SparkleIcon size={14}/>能源助手</>}</span><p>{turn.text}</p>{turn.result?.episode && <div className={`consumer-result ${['unknown', 'failed', 'rejected'].includes(phase) ? 'is-caution' : ''}`}><ResultIcon phase={phase}/><span>{phaseText[phase] || '执行记录已更新'}<small>本机演练</small></span><details><summary>详情</summary><p>事件 {turn.result.episode.episodeId || turn.result.episode.id || '已记录'}</p><p>阶段 {phase || '待核对'}</p></details></div>}{['settled', 'outcome'].includes(phase) && /^[A-Za-z0-9_-]{1,100}$/.test(episodeId) && <div className="consumer-result-feedback"><span>这次安排适合你吗？</span><button disabled={blocked} onClick={() => startFeedback(episodeId, 'suitable')}>合适</button><button disabled={blocked} onClick={() => startFeedback(episodeId, 'unsuitable')}>想调整</button></div>}</div>; })}
+          {turns.map(turn => { const phase = turn.result?.episode?.phase || turn.result?.episode?.stage || turn.result?.episode?.status || ''; const episodeId = turn.result?.episode?.episodeId || ''; return <div className={`consumer-turn is-${turn.role}`} key={`${turn.role}-${turn.id}`}><span className="consumer-turn-label">{turn.source === 'feishu' && <span className="consumer-source-tag">来自飞书</span>}{turn.source === 'agent' && <span className="consumer-source-tag" data-delivery-state={turn.deliveryState}>主动提醒 · {notificationState[turn.deliveryState ?? 'unknown']}</span>}{turn.role === 'user' ? '你' : <><SparkleIcon size={14}/>能源助手</>}</span><p>{turn.text}</p>{turn.result?.episode && <div className={`consumer-result ${['unknown', 'failed', 'rejected'].includes(phase) ? 'is-caution' : ''}`}><ResultIcon phase={phase}/><span>{phaseText[phase] || '执行记录已更新'}<small>本机演练</small></span><details><summary>详情</summary><p>事件 {turn.result.episode.episodeId || turn.result.episode.id || '已记录'}</p><p>阶段 {phase || '待核对'}</p></details></div>}{['settled', 'outcome'].includes(phase) && /^[A-Za-z0-9_-]{1,100}$/.test(episodeId) && <div className="consumer-result-feedback"><span>这次安排适合你吗？</span><button disabled={blocked} onClick={() => startFeedback(episodeId, 'suitable')}>合适</button><button disabled={blocked} onClick={() => startFeedback(episodeId, 'unsuitable')}>想调整</button></div>}</div>; })}
           {pending && <div className="consumer-pending" key={pending.token}><div className="consumer-pending-title"><span><ClockIcon size={17}/>{pending.kind === 'clarification' ? '还需要你补充一点' : pending.kind.includes('plan') ? '这份安排，请你看看' : '先确认我有没有理解对'}</span><span>等你确认</span></div><p>{pending.summary}</p><details><summary>查看依据与编号</summary><p>{pending.proposalId ? `方案 ${pending.proposalId}` : '这次确认会提交到已连接的家庭。'}</p>{pending.episodeId && <p>事件 {pending.episodeId}</p>}{pending.execution && <p>模拟槽 {pending.execution.sourceSlot} · {pending.execution.intervalMinutes} 分钟 × {pending.execution.intervalCount} 槽 · 目标 {pending.execution.targetPowerW} W</p>}<p>只确认当前展示的这一项。</p></details>{pendingExpired(pending, now) ? <div className="consumer-expired">这件事的确认时间已过，请重新连接后再看看。<button className="consumer-link" onClick={() => void connect()}>刷新安排<ArrowRightIcon size={15}/></button></div> : <div className="consumer-pending-actions">{pending.choices?.length ? pending.choices.map(choice => <div className="consumer-choice" key={choice.id}>{choice.description && <p>{choice.description}</p>}<button className="consumer-primary" disabled={blocked || executionInProgress} onClick={() => confirm(choice.id)}>{choice.label}<ArrowRightIcon size={16}/></button></div>) : pending.canConfirm && pending.confirmAction === 'confirm_pending' ? <button className="consumer-primary" disabled={blocked || executionInProgress} onClick={() => confirm()}>{confirmLabels[pending.kind] || '确认这件事'}<CheckIcon size={17}/></button> : <p>这项建议还需要继续讨论，暂时不能确认。</p>}<span>{executionInProgress ? '本段已提交，正在等待真实回读；不能重复确认' : '想调整，直接在下面告诉我'}</span></div>}</div>}
           {busy && <p className="consumer-working" role="status"><span/>正在处理这件事…</p>}
           {(submitError || connectionError) && <div className="consumer-feedback" role="alert"><WarningCircleIcon size={19}/><div><p>{submitError || connectionError}</p>{unresolved ? <button disabled={busy || !ready} className="consumer-link" onClick={() => void reconcile()}>查询这次结果<ArrowRightIcon size={15}/></button> : <button disabled={connecting} className="consumer-link" onClick={() => void connect()}>重新连接<ArrowRightIcon size={15}/></button>}</div></div>}

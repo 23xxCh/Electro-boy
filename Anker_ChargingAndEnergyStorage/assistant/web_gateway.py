@@ -16,6 +16,7 @@ import uuid
 from .runtime_api import RuntimeUnavailable
 from .service import normalize_command
 from .decision_view import DecisionReader,ReadError
+from .notifications import read_notifications,NeedsTimezone
 
 ORIGINS={'http://127.0.0.1:19388','http://localhost:19388','http://127.0.0.1:5173','http://localhost:5173'}
 COOKIE='anker_assistant_session'
@@ -209,6 +210,8 @@ class WebGateway:
 
     def dispatch(self, method, path, cookie, body=None):
         parsed=urlsplit(path)
+        if parsed.path in {'/api/assistant/notifications','/api/assistant/notification-settings'}:
+            return self.notification_dispatch(method,path,cookie,body)
         if parsed.path=='/api/assistant/environment':
             if method!='GET':return 405,{'error':{'code':'method_not_allowed'}},None
             return self.environment_dispatch(path,cookie)
@@ -273,6 +276,27 @@ class WebGateway:
             return 200,envelope('unavailable','release_core_unavailable'),None
         except Exception:return 502,{'error':{'code':'environment_read_unavailable'}},None
 
+    def notification_dispatch(self,method,path,cookie,body=None):
+        try:
+            parsed=urlsplit(path)
+            if parsed.query:raise ReadError('notification_query_not_allowed')
+            is_read=parsed.path=='/api/assistant/notifications'
+            if method!=('GET' if is_read else 'POST'):return 405,{'error':{'code':'method_not_allowed'}},None
+            if not is_read and (not isinstance(body,dict) or set(body)!={'enabled'} or type(body['enabled']) is not bool):
+                raise ReadError('invalid_notification_settings')
+            with self.reader.connect() as db:
+                who,_=self.reader.identity(db,cookie)
+                if is_read:return 200,read_notifications(db,who),None
+            try:
+                result=self.service.notifications.set_enabled(who,body['enabled'])
+            except NeedsTimezone:
+                with self.reader.connect() as db:result=read_notifications(db,who)
+                result['error']={'code':'needs_timezone'}
+                return 409,result,None
+            return 200,result,None
+        except ReadError as error:return error.status,{'error':{'code':error.code}},None
+        except Exception:return 503,{'error':{'code':'notifications_unavailable'}},None
+
 
 def serve_gateway(gateway, executor, port=19390):
     class Handler(BaseHTTPRequestHandler):
@@ -301,6 +325,9 @@ def serve_gateway(gateway, executor, port=19390):
                 return self.respond(status,result,token)
             if self.command=='GET' and urlsplit(self.path).path=='/api/assistant/environment':
                 status,result,token=gateway.environment_dispatch(self.path,self.headers.get('Cookie'))
+                return self.respond(status,result,token)
+            if self.command=='GET' and urlsplit(self.path).path=='/api/assistant/notifications':
+                status,result,token=gateway.notification_dispatch('GET',self.path,self.headers.get('Cookie'))
                 return self.respond(status,result,token)
             future=executor.submit(gateway.dispatch,self.command,self.path,self.headers.get('Cookie'),body)
             try:

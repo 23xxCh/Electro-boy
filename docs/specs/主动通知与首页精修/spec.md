@@ -1,6 +1,6 @@
 # AN-01 主动通知与首页精修
 
-状态：用户已要求 Implement plan；root 已批准 S0 与 Web 合同。当前仅完成 SDD 准备，生产实现等待 Git baseline pushed 后 root 解锁。
+状态：基线与架构文档已合并到 GitHub；首页与通知的修复源码候选已完成离线检查及独立评审，尚未部署、开启本人提醒或真实发送。公开范围与实际验收见 [verification.md](verification.md)。
 
 ## 用户目标
 
@@ -8,10 +8,10 @@
 
 ## 已有能力和证据边界
 
-- Web/飞书已共享 Service、SQLite、owner 与本机 site_1 首15分钟确认闭环；现代码只回复已有飞书入站，没有主动发送 outbox。现 monitor 每5秒只清缓存和写状态。
+- 已部署 Web/飞书共享 Service、SQLite、owner 与本机 site_1 首15分钟确认闭环。新增通知源码候选在原 monitor/串行业务执行器内增加有界 outbox tick；尚未切换正在运行的机器人。
 - 原 messages/work 为入站恢复，进入 sending 后删除 work，不能直接复用为需要保留未知发送结果的主动 outbox。
 - 当前 feed 仅 web/feishu、保留10分钟；不能用它补写全天记录。新 agent feed 只发表通知发送终态一次。
-- 环境机独立只读接口候选已经离线验收，仍未配置、未启用、未部署或连通；本轮不连接远端，也不解除远端控制 gate。
+- 环境机独立只读接口候选已经离线验收。另一个获授权任务取得一次 HA 只读采样成功，看板登录超时；当前生产配置仍关闭，App 环境机路由尚未部署且返回404。采样不等于 App 已接通，不解除远端控制 gate。
 
 ## 本轮最小范围
 
