@@ -261,3 +261,16 @@ Anker_ChargingAndEnergyStorage/frontend/dist/
 !Anker_ChargingAndEnergyStorage/checks/runtime/test_core_contract.py
 !Anker_ChargingAndEnergyStorage/checks/runtime/test_physical_oracle.py
 !Anker_ChargingAndEnergyStorage/checks/runtime/physical_oracle.py
+
+# Reviewed architecture and AN-01 specification snapshot.
+!docs/architecture/
+!docs/specs/主动通知与首页精修/
+!docs/architecture/current-system-20261017.svg
+!docs/architecture/current-system-20261017.png
+!docs/architecture/current-system-20261017.md
+!docs/specs/主动通知与首页精修/spec.md
+!docs/specs/主动通知与首页精修/contract.md
+!docs/specs/主动通知与首页精修/plan.md
+!docs/specs/主动通知与首页精修/tasks.md
+!docs/architecture/everywatt-original.svg
+!.gitattributes

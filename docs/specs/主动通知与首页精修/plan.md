@@ -1,0 +1,27 @@
+# AN-01 实施与所有权
+
+## 顺序
+
+1. S0 当前：读handoff/源码，冻结spec/contract/类型与测试；**仅文档**。
+2. S1 Git baseline：root确认候选基线已推送，再发明确生产解锁。未收到前不得改生产、测试脚本、构建产物或服务。
+3. S2 backend：两表/状态机/owner-only发送门、只读GET与开关POST、feed agent终态事件、原Worker即时回复覆盖、monitor受限tick。通知schema独立检查，不改MemoryV2 user_version=2；真实首次DDL前由受控idle迁移做SQLite backup API备份，不裸copy/WAL。GET mode=ro不触发factory迁移。构造/默认disabled不发送，无后台propose/HA轮询。
+4. S2 frontend并行：精修现首页状态/实际/预计/建议层级、通知开关与最近20条、needsTimezone提示、agent bot-only气泡与消息/执行unknown区分；不改backend。
+5. S3离线：临时owner/SQLite、fake时间/SDK/HTTP，禁止远端连接。先作者有意义检查，再独立QA；旧本机双确认、Web/飞书同步、专业/历史兼容定向回归。
+6. S4 root评审源码/截图/证据并收敛。只有明确授权与idle边界才考虑本机候选部署；不连接环境机，不代本人开启提醒/确认控制或发送演示通知。
+
+## 所有权与冲突边界
+
+| 范围 | owner | 说明 |
+|---|---|---|
+| docs/specs/主动通知与首页精修/{spec,contract,plan,tasks}.md | /root/app_environment_adapter | root批准合同后冻结，变更先同步所有owner |
+| 能源handoff相关Now/In progress | /root/app_environment_adapter | 写前重读，保留另一会话影片等无关条目 |
+| Git baseline/推送与生产解锁 | root及其发布审查agent | 本owner不提交/推送或读秘密 |
+| assistant/notifications.py（新）、store.py、service.py、runtime_tools.py必要事件关联、web_gateway.py、channels/feishu.py、frontend/server.py allowlist | backend owner，待root解锁指派 | API/通道统一owner；不改runtime/live/optimizer/release transport |
+| frontend/src/ConsumerHome.tsx、assistantWeb.ts、consumer.css与候选build | frontend owner，待root指派 | backend不碰这些文件；保留Environment独立只读合同 |
+| checks/notifications/**、checks/home-polish/** 独立QA及证据 | QA owner，待root指派 | 不改生产，不代发飞书/本人确认 |
+
+原环境机独立接口合同保持；需要改它必须另评范围。不得在监控线程直接共享writer写通知；只向现串行业务executor投递有界tick。
+
+## 验收与风险
+
+构造无发送、master明确开启、无时区不能开启、无新事实无发送；收件人重查、一次尝试/unknown不重发、首次不回放、关闭取消、quiet合并、daily独立水位、reply覆盖、feed终态一次均需离线证据。实际飞书权限/送达及真人体验另记，不能用fake成功或SDK返回代签。当前已通过的本机闭环证据不改成新的执行成果；远端持续未连通、控制blocked。
