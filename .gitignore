@@ -274,3 +274,11 @@ Anker_ChargingAndEnergyStorage/frontend/dist/
 !docs/specs/主动通知与首页精修/tasks.md
 !docs/architecture/everywatt-original.svg
 !.gitattributes
+
+# Reviewed AN-01 source candidate and verification.
+!Anker_ChargingAndEnergyStorage/assistant/notifications.py
+!Anker_ChargingAndEnergyStorage/channels/checks/test_notifications.py
+!docs/specs/主动通知与首页精修/verification.md
+!Anker_ChargingAndEnergyStorage/frontend/checks/
+!Anker_ChargingAndEnergyStorage/frontend/checks/consumer-ui/
+!Anker_ChargingAndEnergyStorage/frontend/checks/consumer-ui/test_proxy.py

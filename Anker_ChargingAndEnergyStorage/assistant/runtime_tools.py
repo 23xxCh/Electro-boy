@@ -265,7 +265,12 @@ class RuntimeTools:
         try:
             receipt=self.api.confirm(identity,episode_id,pending['proposalId'],confirmation)
         except RuntimeOutcomeUnknown:
-            self.memory.episode_event(identity,episode_id,'unknown',{'requestId':episode_id,'reasonCode':'transport_outcome_unknown','environment':'local_debug1_sim'})
+            from .notifications import transaction
+            notifications=getattr(self.store,'notifications',None)
+            before=notifications.capture_before(identity) if notifications else None
+            with transaction(self.store.db):
+                self.memory.episode_event(identity,episode_id,'unknown',{'requestId':episode_id,'reasonCode':'transport_outcome_unknown','environment':'local_debug1_sim'})
+                if notifications:notifications.record_changes(identity,before,getattr(self.store,'notification_origin',None))
             self.last_result={'kind':'execution_unknown','episodeId':episode_id}
             return f'本机演练执行结果尚不明确，未重发。请查“仿真进度 {episode_id}”只读核对原请求，不能把超时当作未执行。'
         except RuntimeUnavailable:
@@ -280,6 +285,14 @@ class RuntimeTools:
         return reply
 
     def sync(self, identity, receipt):
+        from .notifications import transaction
+        notifications=getattr(self.store,'notifications',None)
+        before=notifications.capture_before(identity) if notifications else None
+        with transaction(self.store.db):
+            self._sync(identity,receipt)
+            if notifications:notifications.record_changes(identity,before,getattr(self.store,'notification_origin',None))
+
+    def _sync(self, identity, receipt):
         if receipt.get('environment')!='local_debug1_sim' or receipt.get('owner')!=self.api.owner(identity):
             raise ValueError('runtime_owner_or_environment_mismatch')
         episode_id=receipt['episodeId']

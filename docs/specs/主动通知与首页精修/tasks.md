@@ -1,16 +1,18 @@
 # AN-01 Tasks
 
-- [x] 用户实施范围确认：当前首页精修、本机闭环、远端独立只读不连通、重要事件+每日摘要。
+- [x] 用户实施范围确认：当前首页精修、本机闭环、重要事件+每日摘要；另已允许有界远端只读并完成一次HA采样，未授权设备写。
 - [x] 只读审查现Service/Store/Worker/RuntimeTools/feed与本地SDK字段。
 - [x] root S0批准两表、两API、Web字段、quiet/daily/unknown/feed/owner边界。
 - [x] 四份SDD准备，类型发root以便frontend排期。
-- [ ] Git baseline pushed（root证据），生产解锁。
-- [ ] Backend两表/事件与reply覆盖/两API/单次owner发送门。
-- [ ] Frontend当前首页精修、通知设置/最近20条/agent终态气泡。
-- [ ] 作者离线边界检查及旧闭环定向回归。
-- [ ] 独立QA、source/build pins与截图评审。
-- [ ] root评审与本机候选部署边界确认；不连接环境机。
-- [ ] 最终handoff与真实已验/未验范围更新。
+- [x] Git baseline及聊天hotfix已合并；架构图/SDD文档PR3已合并。
+- [x] Backend两表/事件与reply覆盖/两API/单次owner发送门；同时间戳首次启用和旧schema迁移修复副本已验。
+- [x] Frontend当前首页精修、通知设置/最近20条/agent终态气泡；短桌面与手机首屏修复副本已验。
+- [x] 作者离线边界检查及旧闭环定向回归；各套结果分别记录于verification。
+- [x] 独立后端7项修复复核、UI48项/TypeScript/build、source pins与截图评审。
+- [x] root已评审修复副本及截图；本次仅隔离Git源码候选，未部署。
+- [ ] 在确认idle与备份后另行验收本人库迁移和本机候选部署；本次不执行。
+- [ ] 由户主显式开启并验收真实SDK权限、provider回执与本人看到；不代本人开启或发送演示通知。
+- [ ] 实体手机键盘/读屏阅读顺序专项验收。
 
 ## 必需测试场景
 
@@ -27,3 +29,4 @@
 11. 本机资料保存和设备执行双确认、幂等UUID/原ID核对、Web/飞书资料/decision同步、专业/历史/Environment只读兼容。
 12. 首页1440/390/320与键盘/确认/输入可达，减少动效、3D失败保底；截图/SSR/真实手机验收分别注明。
 13. 通知schema首次/重复初始化独立检查；MemoryV2 user_version=2保持；真实迁移备份使用SQLite backup API，GET缺表仍零DDL/零writer变动。
+14. 首次开启及重新开启时，已存在且wall clock相等的旧事实不回放，新产生的同时间戳事实不漏发；BEGIN IMMEDIATE先于事件基线读取，备份后兼容旧schema且active旧设置拒绝静默迁移。

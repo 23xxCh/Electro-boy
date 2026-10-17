@@ -42,6 +42,8 @@ export default function EnergyWorld(props: EnergyWorldProps) {
   const [phase, setPhase] = useState<'loading' | 'ready' | 'fallback'>('loading');
   const [retry, setRetry] = useState(0);
   const [asset, setAsset] = useState<'loading' | 'lux3d' | 'unavailable'>('loading');
+  const kw = (value: number | null | undefined) => value == null ? '未提供' : `${value.toFixed(2)} kW`;
+  const battery = frame?.batteryKw == null ? '未提供' : frame.batteryKw === 0 ? '待机 0 W' : `${frame.batteryKw < 0 ? '充电' : '放电'} ${Math.round(Math.abs(frame.batteryKw) * 1000)} W`;
 
   useEffect(() => {
     let cancelled = false;
@@ -67,7 +69,7 @@ export default function EnergyWorld(props: EnergyWorldProps) {
   return <section className={`ew-world ew-${frame?.kind ?? 'empty'}`} aria-label="家庭能源立体场景" data-ew-phase={phase} data-ew-frame-kind={frame?.kind ?? 'empty'}>
     <div className="ew-world-glow" aria-hidden="true"/>
     <div className="ew-canvas" ref={container} aria-hidden="true"/>
-    {phase !== 'ready' && <div className="ew-fallback"><StaticIsland/><p role="status">{phase === 'loading' ? '正在准备家园…' : '轻量视图 · 数据与设备选择照常可用'}</p></div>}
+    {phase !== 'ready' && <div className="ew-fallback"><StaticIsland/></div>}
     <div className="ew-world-caption"><span className="ew-world-title">你的能源小世界</span><span>房屋与灯光为场景示意</span></div>
     {phase === 'ready' ? <div className="ew-camera-controls" aria-label="场景视角">
       <button type="button" onClick={() => world.current?.zoom(1)} aria-label="放大场景"><PlusIcon size={19}/></button>
@@ -75,10 +77,10 @@ export default function EnergyWorld(props: EnergyWorldProps) {
       <button type="button" onClick={() => world.current?.reset()} aria-label="还原场景视角"><ArrowsClockwiseIcon size={19}/></button>
     </div> : phase === 'fallback' && <button className="ew-retry" type="button" onClick={() => setRetry(value => value + 1)}>重试 3D</button>}
     <div className="ew-device-controls" aria-label="选择设备">
-      <button type="button" aria-pressed={selected === 'pv'} onClick={() => onSelect('pv')}><SunIcon size={21}/><span>光伏</span></button>
-      <button type="button" aria-pressed={selected === 'battery'} onClick={() => onSelect('battery')}><BatteryHighIcon size={21}/><span>电池</span></button>
-      <button type="button" aria-pressed={selected === 'grid'} onClick={() => onSelect('grid')}><PlugIcon size={21}/><span>电网</span></button>
+      <button type="button" aria-pressed={selected === 'pv'} onClick={() => onSelect('pv')}><SunIcon size={21}/><span>光伏<small>{kw(frame?.pvKw)}</small></span></button>
+      <button type="button" aria-pressed={selected === 'battery'} onClick={() => onSelect('battery')}><BatteryHighIcon size={21}/><span>电池<small>{battery}</small></span></button>
+      <button type="button" aria-pressed={selected === 'grid'} onClick={() => onSelect('grid')}><PlugIcon size={21}/><span>电网<small>购 {kw(frame?.gridImportKw)}<br/>出 {kw(frame?.gridExportKw)}</small></span></button>
     </div>
-    <div className="ew-scene-note"><span>{!frame ? '暂无能源读数 · 场景示意' : frame.kind === 'preview' ? '虚线总线 · 预计，尚未执行' : frame.kind === 'actual' ? frame.motion === 'receipt_replay' && !reducedMotion ? '刚才这15分钟 · 实际回放' : '刚才这15分钟 · 已回读' : '保持最近读数 · 总线静止'}</span><span>{phase !== 'ready' ? '二维场景示意' : asset === 'lux3d' ? 'Lux3D 房屋＋原生设备' : asset === 'unavailable' ? '模型未加载 · 原生3D保底' : '原生3D · 房屋模型加载中'}</span></div>
+    <div className="ew-scene-note"><span>{!frame ? '暂无能源读数 · 场景示意' : frame.kind === 'preview' ? '虚线总线 · 预计，尚未执行' : frame.kind === 'actual' ? frame.motion === 'receipt_replay' && !reducedMotion ? '本次15分钟 · 实际回放' : '本次15分钟 · 已回读' : '保持最近读数 · 总线静止'}</span><span role="status">{phase === 'loading' ? '准备3D · 暂用二维示意' : phase === 'fallback' ? '二维保底 · 数据与选择可用' : asset === 'lux3d' ? 'Lux3D 房屋＋原生设备' : asset === 'unavailable' ? '模型未加载 · 原生3D保底' : '原生3D · 房屋模型加载中'}</span></div>
   </section>;
 }

@@ -30,8 +30,37 @@ export type DecisionProjection = {
   actual: null | { executedSlot: number; observedBoundarySlot: number; start: string; end: string; pvKw: number; loadKw: number; batteryActualKw: number; gridImportKw: number; gridExportKw: number; socStartPercent: number; socEndPercent: number; intervalCostEur: number | null; reserveMet: boolean | null; readbackMatches: boolean; settlementAvailable: boolean; evidenceRef: string };
   savings: 'not_evaluated';
 };
-export type FeedItem = { id: string; requestId: string | null; sourceChannel: 'web' | 'feishu'; userText: string; agentText: string; createdAt: number; episodeId: string | null; previewId: string | null };
+export type DeliveryState = 'sent' | 'unknown' | 'failed';
+export type FeedItem = { id: string; requestId: string | null; sourceChannel: 'web' | 'feishu' | 'agent'; userText: string; agentText: string; createdAt: number; episodeId: string | null; previewId: string | null; notificationId?: string; deliveryState?: DeliveryState };
 export type AssistantFeed = { schemaVersion: 'assistant-feed-v1'; retentionSeconds: 600; reset: boolean; cursor: string | null; hasMore: boolean; items: FeedItem[] };
+export type NotificationItem = {
+  id: string; kind: 'pending_attention' | 'execution_outcome' | 'execution_unknown' | 'execution_resolved' | 'quiet_digest' | 'daily_summary';
+  state: 'queued' | 'deferred' | 'sending' | 'sent' | 'unknown' | 'failed' | 'cancelled' | 'covered_by_reply';
+  title: string; text: string; createdAt: number; updatedAt: number; dueAt: number | null; episodeId: string | null;
+  environment: 'local_debug1_sim'; deliveryVia: 'proactive' | 'reply' | null;
+};
+export type AssistantNotifications = {
+  schemaVersion: 'assistant-notifications-v1';
+  settings: { enabled: boolean; needsTimezone: boolean; timezone: string | null; dailyAt: '20:00'; quietHours: { start: '22:00'; end: '08:00' }; triggers: ['important_events', 'daily_summary']; enabledAt: number | null };
+  items: NotificationItem[]; error?: { code: 'needs_timezone' };
+};
+export type HomeSummary = { kind: 'unknown' | 'executing' | 'pending' | 'actual' | 'preview' | 'observation' | 'unavailable'; title: string; detail: string; action: 'reconcile' | 'evidence' | 'pending' | 'explain' | null };
+export function homeSummary(view: DecisionProjection | null, pending: Pending | null, unresolved: string, ready: boolean, now = Date.now()): HomeSummary {
+  if (!ready) return { kind: 'unavailable', title: '先连接你的家庭', detail: '连接后，可一起查看用电、讨论安排并核对设备结果。', action: null };
+  if (unresolved || view?.presentationState === 'unknown' || view?.execution.phase === 'unknown') return { kind: 'unknown', title: '这次提交的结果还需核对', detail: '先查看原请求或执行记录，避免重复安排。', action: unresolved ? 'reconcile' : 'evidence' };
+  if (view?.presentationState === 'executing' || ['confirmed', 'dispatched', 'acknowledged'].includes(view?.execution.phase ?? '')) return { kind: 'executing', title: '已提交，正在等设备回读', detail: '执行结果尚未核验；请不要重复确认。', action: null };
+  if (pending && !pendingExpired(pending, now)) return { kind: 'pending', title: pending.kind.includes('plan') ? '这份安排，等你确认' : '先看看我有没有理解对', detail: pending.kind.includes('plan') ? '先核对本次设备时段与目标，再决定是否执行。' : '确认保存资料以后，设备执行仍会另行请你确认。', action: 'pending' };
+  if (['failed', 'rejected'].includes(view?.execution.phase ?? '')) return { kind: 'unavailable', title: view?.execution.phase === 'rejected' ? '这份安排暂时不能执行' : '这次执行没有完成', detail: '请查看原执行记录，核对已回读的部分与失败原因。', action: 'evidence' };
+  if (view && (['stale', 'unavailable'].includes(view.availability) || ['expired', 'infeasible'].includes(view.presentationState))) return { kind: 'unavailable', title: view.presentationState === 'infeasible' ? '这项要求暂时无法满足' : '这份安排需要重新核对来源', detail: '已有读数保留原时点，不能作为新的执行依据。', action: 'evidence' };
+  const actual = view?.actual;
+  if (actual && view?.episodeId && actual.evidenceRef === view.episodeId && view.origin?.sourceSlot === actual.executedSlot && actual.readbackMatches && view.execution.readbackMatches === true) {
+    const cost = actual.settlementAvailable && actual.intervalCostEur !== null ? ` · 净电费 €${actual.intervalCostEur.toFixed(4)}` : ' · 净电费待结算';
+    return { kind: 'actual', title: actual.reserveMet === true ? '这次备用电量已满足' : actual.reserveMet === false ? '这次备用电量尚未满足' : '本次15分钟已有设备回读',
+      detail: `${actual.start.replace('T', ' ').slice(5, 16)}–${actual.end.slice(11, 16)} · 电量 ${actual.socStartPercent.toFixed(1)}% → ${actual.socEndPercent.toFixed(1)}%${cost}；这是本次结果。`, action: 'explain' };
+  }
+  if (view?.availability === 'ready' && view.plan?.status === 'ok' && view.plan.points.length) return { kind: 'preview', title: '看看这份预计安排', detail: `最低保留 ${view.plan.minimumPercent.toFixed(0)}% 电量；未来均未执行，实际结果需等待回读。`, action: 'explain' };
+  return { kind: 'observation', title: '用电安排，可以从一句话开始', detail: '当前展示最近已读快照。告诉助手你的习惯或留电要求，先看方案再确认。', action: null };
+}
 export type EnvironmentSnapshot = {
   schemaVersion: 'environment-pipeline-v1'; environment: 'release_official_ha_unverified';
   status: 'disabled' | 'ready' | 'partial' | 'unavailable'; reasonCode: string | null; householdId: 'site_1';
@@ -169,8 +198,29 @@ export function readDecision(v: unknown): DecisionProjection {
 export function readFeed(v: unknown): AssistantFeed {
   if (!object(v) || v.schemaVersion !== 'assistant-feed-v1' || v.retentionSeconds !== 600 || typeof v.reset !== 'boolean' || !nullableString(v.cursor) ||
     typeof v.hasMore !== 'boolean' || !Array.isArray(v.items) || !v.items.every(i => object(i) && typeof i.id === 'string' && !!i.id && nullableString(i.requestId) &&
-      ['web', 'feishu'].includes(String(i.sourceChannel)) && typeof i.userText === 'string' && typeof i.agentText === 'string' && finite(i.createdAt) && nullableString(i.episodeId) && nullableString(i.previewId))) return fail();
+      ['web', 'feishu', 'agent'].includes(String(i.sourceChannel)) && typeof i.userText === 'string' && typeof i.agentText === 'string' && finite(i.createdAt) && nullableString(i.episodeId) && nullableString(i.previewId) &&
+      (i.notificationId === undefined || typeof i.notificationId === 'string' && !!i.notificationId) && (i.deliveryState === undefined || ['sent', 'unknown', 'failed'].includes(String(i.deliveryState))) &&
+      (i.sourceChannel !== 'agent' || i.userText === '' && !!i.agentText && typeof i.notificationId === 'string' && !!i.notificationId && ['sent', 'unknown', 'failed'].includes(String(i.deliveryState))))) return fail();
   return v as AssistantFeed;
+}
+export function readNotifications(v: unknown): AssistantNotifications {
+  const timestamp = (n: unknown) => finite(n) && n >= 0;
+  if (!object(v) || v.schemaVersion !== 'assistant-notifications-v1' || !object(v.settings) ||
+    typeof v.settings.enabled !== 'boolean' || typeof v.settings.needsTimezone !== 'boolean' || !nullableString(v.settings.timezone) ||
+    v.settings.timezone !== null && (!(v.settings.timezone as string).trim() || (v.settings.timezone as string).length > 100) ||
+    !v.settings.needsTimezone && v.settings.timezone === null || v.settings.dailyAt !== '20:00' ||
+    !object(v.settings.quietHours) || v.settings.quietHours.start !== '22:00' || v.settings.quietHours.end !== '08:00' ||
+    !Array.isArray(v.settings.triggers) || v.settings.triggers.length !== 2 || v.settings.triggers[0] !== 'important_events' || v.settings.triggers[1] !== 'daily_summary' ||
+    !(v.settings.enabledAt === null || timestamp(v.settings.enabledAt)) || !Array.isArray(v.items) || v.items.length > 20 ||
+    !v.items.every(item => object(item) && typeof item.id === 'string' && !!item.id &&
+      ['pending_attention', 'execution_outcome', 'execution_unknown', 'execution_resolved', 'quiet_digest', 'daily_summary'].includes(String(item.kind)) &&
+      ['queued', 'deferred', 'sending', 'sent', 'unknown', 'failed', 'cancelled', 'covered_by_reply'].includes(String(item.state)) &&
+      typeof item.title === 'string' && item.title.length > 0 && item.title.length <= 80 && typeof item.text === 'string' && item.text.length <= 1200 &&
+      timestamp(item.createdAt) && timestamp(item.updatedAt) && (item.dueAt === null || timestamp(item.dueAt)) && nullableString(item.episodeId) &&
+      item.environment === 'local_debug1_sim' && [null, 'proactive', 'reply'].includes(item.deliveryVia as null | string)) ||
+    new Set(v.items.map(item => (item as Record<string, unknown>).id)).size !== v.items.length ||
+    v.error !== undefined && (!object(v.error) || v.error.code !== 'needs_timezone' || !v.settings.needsTimezone || v.settings.enabled)) return fail();
+  return v as AssistantNotifications;
 }
 export function readPending(v: unknown): Pending | null {
   if (v === null) return null;
@@ -218,6 +268,7 @@ async function request(path: string, init?: RequestInit): Promise<unknown> {
     const body = await response.json().catch(() => null);
     if (!response.ok) {
       if (path === 'session' && object(body) && (body.status === 'unbound' || body.status === 'ambiguous')) return body;
+      if (path === 'notification-settings' && response.status === 409 && object(body) && object(body.error) && body.error.code === 'needs_timezone') return body;
       throw new Error(response.status === 401 || response.status === 403 ? '家庭连接需要重新确认，请重新连接。' : '助手暂时没连上，请稍后重试。');
     }
     return body;
@@ -228,6 +279,8 @@ export const getStatus = async () => readStatus(await request('status'));
 export const getEnvironment = async () => readEnvironment(await request('environment'));
 export const getDecision = async () => readDecision(await request('decision'));
 export const getFeed = async (cursor: string | null) => readFeed(await request(`feed${cursor ? `?after=${encodeURIComponent(cursor)}` : ''}`));
+export const getNotifications = async () => readNotifications(await request('notifications'));
+export const setNotificationsEnabled = async (enabled: boolean) => readNotifications(await request('notification-settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled }) }));
 export const sendMessage = async (input: MessageInput) => readMessage(await request('messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) }), input.requestId);
 export const findMessage = async (id: string) => readMessage(await request(`messages?requestId=${encodeURIComponent(id)}`), id);
 export const getMemories = async (): Promise<Memory[]> => {
@@ -235,3 +288,4 @@ export const getMemories = async (): Promise<Memory[]> => {
   if (!object(v) || !Array.isArray(v.items) || !v.items.every(m => object(m) && typeof m.id === 'string' && typeof m.kind === 'string' && typeof m.key === 'string' && typeof m.status === 'string' && Number.isInteger(m.revision))) return fail();
   return v.items as Memory[];
 };
+

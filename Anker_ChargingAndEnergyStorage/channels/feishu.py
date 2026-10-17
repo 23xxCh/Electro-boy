@@ -58,6 +58,17 @@ def normalize(raw, app_id):
         return None
 
 
+def notification_delivery(response):
+    """A transport error or missing provider receipt never proves delivery."""
+    status=getattr(getattr(response,'raw',None),'status_code',None)
+    if isinstance(status,int) and not isinstance(status,bool):
+        if 400<=status<500:return {'state':'failed'}
+        if 200<=status<300 and response.success():
+            message=getattr(getattr(response,'data',None),'message_id',None)
+            if isinstance(message,str) and 0<len(message)<=256:return {'state':'sent','messageId':message}
+    return {'state':'unknown'}
+
+
 class Worker:
     def __init__(self, app_id, store, service, send):
         self.app_id, self.store, self.service, self.send = app_id,store,service,send
@@ -129,7 +140,7 @@ def main():
         return
     warnings.filterwarnings('ignore', message='pkg_resources is deprecated.*')
     import lark_oapi as lark
-    from lark_oapi.api.im.v1 import ReplyMessageRequest, ReplyMessageRequestBody
+    from lark_oapi.api.im.v1 import ReplyMessageRequest, ReplyMessageRequestBody, CreateMessageRequest, CreateMessageRequestBody
     # SDK connection errors can contain signed URLs; never forward SDK diagnostics to stdout/log files.
     logging.getLogger('Lark').disabled = True
     logging.getLogger('lark_oapi').disabled = True
@@ -155,6 +166,17 @@ def main():
             ReplyMessageRequestBody.builder().msg_type('text').content(json.dumps({'text':text},ensure_ascii=False)).uuid(outbound).build()).build()
         response = client.im.v1.message.reply(request)
         return response.success()
+    def send_owner(identity,text,outbound):
+        from assistant.notifications import owner,zone
+        if identity.get('app')!=app_id:return {'state':'failed'}
+        binding=owner(store.db,identity)
+        if zone(binding) is None or not binding['sender'].startswith('ou_'):
+            return {'state':'failed'}
+        request=CreateMessageRequest.builder().receive_id_type('open_id').request_body(
+            CreateMessageRequestBody.builder().receive_id(binding['sender']).msg_type('text')
+            .content(json.dumps({'text':text},ensure_ascii=False)).uuid(outbound).build()).build()
+        response=client.im.v1.message.create(request)
+        return notification_delivery(response)
     worker = Worker(app_id,store,service,send)
     inbox = Worker(app_id,Store(directory / 'assistant.sqlite3'),service,send)
     executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix='household')
@@ -172,6 +194,7 @@ def main():
     websocket = lark.ws.Client(app_id,credentials['app_secret'],event_handler=handler,log_level=lark.LogLevel.ERROR)
     web_gateway.transport_connected=lambda:getattr(websocket,'_conn',None) is not None
     def monitor():
+        notification_future=None
         while True:
             store.prune_cache()
             connected = getattr(websocket,'_conn',None) is not None
@@ -181,6 +204,8 @@ def main():
             temporary = directory / 'status.tmp'
             temporary.write_text(json.dumps(snapshot),encoding='utf-8')
             temporary.replace(status_path)
+            if notification_future is None or notification_future.done():
+                notification_future=executor.submit(service.notifications.tick,send_owner,app_id)
             time.sleep(5)
     threading.Thread(target=monitor,daemon=True).start()
     try:

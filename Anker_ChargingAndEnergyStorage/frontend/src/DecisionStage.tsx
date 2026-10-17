@@ -17,8 +17,8 @@ function Flow({ id, path, power, reverse, moving, preview }: { id: string; path:
     style={{ '--flow-duration': `${Math.max(.7, 2.5 - Math.abs(power ?? 0) * .5)}s` } as CSSProperties}/>;
 }
 
-export default function DecisionStage({ decision, frame, selectedMode, selectedSlot, onMode, onSlot, error, loading, busy, onRefresh, onProfessional, onAsk, compact = false }: {
-  decision: DecisionProjection | null; frame: EnergyWorldFrame | null; selectedMode: EnergyWorldFrame['kind']; selectedSlot: number | null; onMode: (mode: EnergyWorldFrame['kind']) => void; onSlot: (slot: number) => void;
+export default function DecisionStage({ decision, frame, selectedSlot, onSlot, error, loading, busy, onRefresh, onProfessional, onAsk, compact = false }: {
+  decision: DecisionProjection | null; frame: EnergyWorldFrame | null; selectedSlot: number | null; onSlot: (slot: number) => void;
   error: string; loading: boolean; busy: boolean; onRefresh: () => void; onProfessional: () => void; onAsk: () => void; compact?: boolean;
 }) {
   const marker = useId().replace(/:/g, '');
@@ -72,7 +72,7 @@ export default function DecisionStage({ decision, frame, selectedMode, selectedS
     <div className="rd-tariff"><span>购电 <strong>{buy == null ? '未接入' : buy.toFixed(4)}</strong></span><span>售电 <strong>{sell == null ? '未接入' : sell.toFixed(4)}</strong></span><small>EUR/kWh · {frame?.kind === 'actual' ? '执行段计划价' : previewing ? '计划采用价' : '模拟时段价'}</small></div>
     {!previewing && frame?.kind !== 'actual' && <p className="rd-source">功率：已结束时段 {frame?.interval.measurementSlot ?? '未知'} · 电量边界 {frame?.interval.socBoundarySlot ?? '未知'}</p>}
     </>}
-    {compact && <div className="ew-timeline-heading"><h3>电池留电轨迹</h3><div className="ew-time-modes" aria-label="选择数据时间类型"><button aria-pressed={selectedMode === 'observation'} onClick={() => onMode('observation')}>最近已读</button><button disabled={!actual} aria-pressed={selectedMode === 'actual'} onClick={() => onMode('actual')}>实际15分钟</button><button disabled={!previewAvailable} aria-pressed={selectedMode === 'preview'} onClick={() => onMode('preview')}>计划预演</button></div></div>}
+    {compact && <div className="ew-timeline-heading"><h3>电池留电轨迹</h3></div>}
     <section className="rd-trajectory" aria-label="电池计划与实际"><div className="rd-chart-heading"><h3><ChartLineIcon size={19}/>电池怎样留电</h3>{plan && <span>最低 {pct(plan.minimumPercent)}</span>}</div>
       <div className="rd-chart-key"><span className="is-before">调整前预计</span><span className="is-plan">{baseline ? '调整后预计' : '计划预计'}</span><span className="is-actual">实际回读</span></div>
       <svg className="rd-soc-chart" viewBox="0 0 480 174" role="img" aria-label="电池SOC计划与实际；虚线为预计，圆点为已回读，精确值在下方">

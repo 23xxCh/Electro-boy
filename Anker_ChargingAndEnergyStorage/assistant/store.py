@@ -111,6 +111,10 @@ class Store:
             self.db.execute('INSERT OR REPLACE INTO pending VALUES(?,?,?,?,?,?)',
                             (*self.scope(identity), token, json.dumps(data, ensure_ascii=False),
                              (time.time() if now is None else now) + 600))
+            notifications=getattr(self,'notifications',None)
+            setting=notifications.setting(identity) if notifications else None
+            if setting and setting['enabled']:
+                notifications.collect_pending(identity,setting,getattr(self,'notification_origin',None))
             if message and reply:
                 self.db.execute('INSERT OR REPLACE INTO receipts VALUES(?,?,?)',
                                 (identity['app'],message,json.dumps({'action':'reply','sender':identity['sender'],
@@ -260,6 +264,10 @@ class Store:
     def state(self, app, message, state):
         with self.db:
             self.db.execute('UPDATE messages SET state=? WHERE app=? AND message=?', (state, app, message))
+            if state=='sending' and self.db.execute("SELECT 1 FROM sqlite_master WHERE name='notification_outbox'").fetchone():
+                # The exact new facts caused by this inbound are covered by its one reply attempt.
+                self.db.execute("UPDATE notification_outbox SET state='covered_by_reply',delivery_via='reply',updated_at=?,outbound_uuid=(SELECT outbound_uuid FROM messages WHERE app=? AND message=?) WHERE app=? AND origin_message=? AND state IN ('queued','deferred')",
+                                (time.time(),app,message,app,message))
             if state in {'sending', 'sent', 'unknown'}:
                 self.db.execute('DELETE FROM work WHERE app=? AND message=?', (app,message))
 

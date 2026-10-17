@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .model import Model
 from .runtime_tools import RuntimeTools
+from .notifications import Notifications
 
 
 HELP = ('我是家庭储能助手。先用本机提供的一次性码私聊“绑定 <码>”。绑定后可自然询问回放收益、状态和安排，'
@@ -34,10 +35,22 @@ class Service:
         self.clock = clock or (lambda: datetime.now(timezone.utc))
         self.last_decision_context = None
         self.runtime=runtime or RuntimeTools(store)
+        self.notifications=Notifications(store)
+        self.store.notifications=self.notifications
         self.last_result=None
 
     def handle(self, app, sender, message_id, text, request_id=None):
-        reply=self._handle(app,sender,message_id,text)
+        binding=self.store.binding(app,sender)
+        identity={'app':app,'sender':sender,'household':binding['household']} if binding else None
+        before=self.notifications.capture_before(identity) if identity else None
+        previous_origin=getattr(self.store,'notification_origin',None)
+        self.store.notification_origin=message_id
+        try:
+            reply=self._handle(app,sender,message_id,text)
+        finally:
+            try:
+                if identity:self.notifications.record_changes(identity,before,message_id)
+            finally:self.store.notification_origin=previous_origin
         binding=self.store.binding(app,sender)
         if binding:
             identity={'app':app,'sender':sender,'household':binding['household']}
